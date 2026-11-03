@@ -96,6 +96,18 @@ function isHttpOriginUrl(value: string) {
   }
 }
 
+function isHttpUrl(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return true
+
+  try {
+    const url = new URL(trimmed)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 const paymentSchema = z.object({
   PayAddress: z.string().refine((value) => {
     const trimmed = value.trim()
@@ -161,6 +173,13 @@ const paymentSchema = z.object({
       })
     }
   }),
+  MbdpayEnabled: z.boolean(),
+  MbdpayAppId: z.string(),
+  MbdpayAppKey: z.string(),
+  MbdpayReturnUrl: z
+    .string()
+    .refine(isHttpUrl, 'Provide a valid URL starting with http:// or https://'),
+  MbdpayMinTopUp: z.coerce.number().min(1),
   WaffoEnabled: z.boolean(),
   WaffoApiKey: z.string(),
   WaffoPrivateKey: z.string(),
@@ -439,6 +458,11 @@ export function PaymentSettingsSection({
       CreemWebhookSecret: values.CreemWebhookSecret.trim(),
       CreemTestMode: values.CreemTestMode,
       CreemProducts: values.CreemProducts.trim(),
+      MbdpayEnabled: values.MbdpayEnabled,
+      MbdpayAppId: values.MbdpayAppId.trim(),
+      MbdpayAppKey: values.MbdpayAppKey.trim(),
+      MbdpayReturnUrl: values.MbdpayReturnUrl.trim(),
+      MbdpayMinTopUp: values.MbdpayMinTopUp,
       WaffoEnabled: values.WaffoEnabled,
       WaffoSandbox: values.WaffoSandbox,
       WaffoMerchantId: values.WaffoMerchantId.trim(),
@@ -484,6 +508,11 @@ export function PaymentSettingsSection({
       CreemWebhookSecret: initialRef.current.CreemWebhookSecret.trim(),
       CreemTestMode: initialRef.current.CreemTestMode,
       CreemProducts: initialRef.current.CreemProducts.trim(),
+      MbdpayEnabled: initialRef.current.MbdpayEnabled,
+      MbdpayAppId: initialRef.current.MbdpayAppId.trim(),
+      MbdpayAppKey: initialRef.current.MbdpayAppKey.trim(),
+      MbdpayReturnUrl: initialRef.current.MbdpayReturnUrl.trim(),
+      MbdpayMinTopUp: initialRef.current.MbdpayMinTopUp,
       WaffoEnabled: initialRef.current.WaffoEnabled,
       WaffoSandbox: initialRef.current.WaffoSandbox,
       WaffoMerchantId: initialRef.current.WaffoMerchantId.trim(),
@@ -629,6 +658,29 @@ export function PaymentSettingsSection({
       normalizeJsonForComparison(initial.CreemProducts)
     ) {
       updates.push({ key: 'CreemProducts', value: sanitized.CreemProducts })
+    }
+
+    if (sanitized.MbdpayEnabled !== initial.MbdpayEnabled) {
+      updates.push({ key: 'MbdpayEnabled', value: sanitized.MbdpayEnabled })
+    }
+
+    if (sanitized.MbdpayAppId !== initial.MbdpayAppId) {
+      updates.push({ key: 'MbdpayAppId', value: sanitized.MbdpayAppId })
+    }
+
+    if (
+      sanitized.MbdpayAppKey &&
+      sanitized.MbdpayAppKey !== initial.MbdpayAppKey
+    ) {
+      updates.push({ key: 'MbdpayAppKey', value: sanitized.MbdpayAppKey })
+    }
+
+    if (sanitized.MbdpayReturnUrl !== initial.MbdpayReturnUrl) {
+      updates.push({ key: 'MbdpayReturnUrl', value: sanitized.MbdpayReturnUrl })
+    }
+
+    if (sanitized.MbdpayMinTopUp !== initial.MbdpayMinTopUp) {
+      updates.push({ key: 'MbdpayMinTopUp', value: sanitized.MbdpayMinTopUp })
     }
 
     if (sanitized.WaffoEnabled !== initial.WaffoEnabled) {
@@ -882,11 +934,12 @@ export function PaymentSettingsSection({
           />
           <Tabs defaultValue='general' className='min-w-0'>
             <div className='overflow-x-auto pb-1'>
-              <TabsList className='grid min-w-[44rem] grid-cols-6'>
+              <TabsList className='grid min-w-[50rem] grid-cols-7'>
                 <TabsTrigger value='general'>{t('General')}</TabsTrigger>
                 <TabsTrigger value='epay'>Epay</TabsTrigger>
                 <TabsTrigger value='stripe'>{t('Stripe')}</TabsTrigger>
                 <TabsTrigger value='creem'>Creem</TabsTrigger>
+                <TabsTrigger value='mbdpay'>MbdPay</TabsTrigger>
                 <TabsTrigger value='waffo-pancake'>Waffo Pancake</TabsTrigger>
                 <TabsTrigger value='waffo'>Waffo</TabsTrigger>
               </TabsList>
@@ -1606,6 +1659,156 @@ export function PaymentSettingsSection({
                     </FormItem>
                   )}
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value='mbdpay' className={paymentTabContentClassName}>
+              <div className='space-y-4'>
+                <div>
+                  <h3 className='text-lg font-medium'>{t('MbdPay Gateway')}</h3>
+                  <p className='text-muted-foreground text-sm'>
+                    {t('Configuration for MbdPay payment integration')}
+                  </p>
+                </div>
+
+                <div className='rounded-md bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100'>
+                  <p className='mb-2 font-medium'>
+                    {t('Webhook Configuration:')}
+                  </p>
+                  <ul className='list-inside list-disc space-y-1'>
+                    <li>
+                      {t('Webhook URL:')}{' '}
+                      <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
+                        {'<ServerAddress>/api/mbdpay/webhook'}
+                      </code>
+                    </li>
+                    <li>
+                      {t(
+                        'Configure this URL in the MbdPay console. Payment callbacks are verified by querying the signed order status before crediting.'
+                      )}
+                    </li>
+                  </ul>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name='MbdpayEnabled'
+                  render={({ field }) => (
+                    <SettingsSwitchItem>
+                      <SettingsSwitchContent>
+                        <FormLabel>{t('Enable MbdPay')}</FormLabel>
+                        <FormDescription>
+                          {t('Show Alipay and WeChat H5 payment methods')}
+                        </FormDescription>
+                      </SettingsSwitchContent>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </SettingsSwitchItem>
+                  )}
+                />
+
+                <div className='grid gap-6 md:grid-cols-2'>
+                  <FormField
+                    control={form.control}
+                    name='MbdpayAppId'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('MbdPay App ID')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t('App ID from the MbdPay console')}
+                            autoComplete='off'
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='MbdpayAppKey'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('MbdPay App Key')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='password'
+                            placeholder={t('Enter new key to update')}
+                            autoComplete='new-password'
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Leave blank unless updating')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className='grid gap-6 md:grid-cols-2'>
+                  <FormField
+                    control={form.control}
+                    name='MbdpayMinTopUp'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Minimum top-up (USD)')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            step='0.01'
+                            min={1}
+                            {...safeNumberFieldProps(field)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Minimum recharge amount in USD')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='MbdpayReturnUrl'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Return URL')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t(
+                              'https://console.example.com/wallet?show_history=true'
+                            )}
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Optional. Leave blank to use the server address.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </TabsContent>
 

@@ -97,12 +97,41 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	enableMbdpay := isMbdpayTopUpEnabled()
+	if enableMbdpay {
+		mbdpayMinTopup := strconv.Itoa(setting.MbdpayMinTopUp)
+		existingMbdpayMethods := make(map[string]bool, len(payMethods))
+		for _, method := range payMethods {
+			existingMbdpayMethods[method["type"]] = true
+		}
+		mbdpayMethods := []map[string]string{
+			{
+				"name":      "支付宝 (MbdPay)",
+				"type":      model.PaymentMethodMbdpayAlipay,
+				"color":     "#1677FF",
+				"min_topup": mbdpayMinTopup,
+			},
+			{
+				"name":      "微信 H5 (MbdPay)",
+				"type":      model.PaymentMethodMbdpayWxpay,
+				"color":     "#07C160",
+				"min_topup": mbdpayMinTopup,
+			},
+		}
+		for _, method := range mbdpayMethods {
+			if !existingMbdpayMethods[method["type"]] {
+				payMethods = append(payMethods, method)
+			}
+		}
+	}
+
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_waffo_topup":               enableWaffo,
 		"enable_waffo_pancake_topup":       enableWaffoPancake,
+		"enable_mbdpay_topup":              enableMbdpay,
 		"enable_redemption":                complianceConfirmed,
 		"payment_compliance_confirmed":     complianceConfirmed,
 		"payment_compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
@@ -118,6 +147,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"stripe_min_topup":        setting.StripeMinTopUp,
 		"waffo_min_topup":         setting.WaffoMinTopUp,
 		"waffo_pancake_min_topup": setting.WaffoPancakeMinTopUp,
+		"mbdpay_min_topup":        setting.MbdpayMinTopUp,
 		"amount_options":          operation_setting.GetPaymentSetting().AmountOptions,
 		"discount":                operation_setting.GetPaymentSetting().AmountDiscount,
 		"topup_link":              common.TopUpLink,

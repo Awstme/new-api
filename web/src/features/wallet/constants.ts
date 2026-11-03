@@ -36,6 +36,8 @@ export const PAYMENT_TYPES = {
   CREEM: 'creem',
   WAFFO: 'waffo',
   WAFFO_PANCAKE: 'waffo_pancake',
+  MBDPAY_ALIPAY: 'mbdpay_alipay',
+  MBDPAY_WXPAY: 'mbdpay_wxpay',
 } as const
 
 /**
@@ -53,6 +55,8 @@ export const PAYMENT_ICON_COLORS = {
   [PAYMENT_TYPES.CREEM]: '#6366F1',
   [PAYMENT_TYPES.WAFFO]: '#2563EB',
   [PAYMENT_TYPES.WAFFO_PANCAKE]: '#F97316',
+  [PAYMENT_TYPES.MBDPAY_ALIPAY]: '#1677FF',
+  [PAYMENT_TYPES.MBDPAY_WXPAY]: '#07C160',
 } as const
 
 /**

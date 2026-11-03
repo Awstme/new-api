@@ -151,6 +151,29 @@ func TestWaffoPancakeWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
 	require.False(t, isWaffoPancakeWebhookEnabled())
 }
 
+func TestMbdpayWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
+	confirmPaymentComplianceForTest(t)
+	originalEnabled := setting.MbdpayEnabled
+	originalAppId := setting.MbdpayAppId
+	originalAppKey := setting.MbdpayAppKey
+	t.Cleanup(func() {
+		setting.MbdpayEnabled = originalEnabled
+		setting.MbdpayAppId = originalAppId
+		setting.MbdpayAppKey = originalAppKey
+	})
+
+	setting.MbdpayEnabled = true
+	setting.MbdpayAppId = "app_id"
+	setting.MbdpayAppKey = ""
+	require.False(t, isMbdpayWebhookEnabled())
+
+	setting.MbdpayAppKey = "app_key"
+	require.True(t, isMbdpayWebhookEnabled())
+
+	setting.MbdpayEnabled = false
+	require.False(t, isMbdpayWebhookEnabled())
+}
+
 func TestEpayWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
 	confirmPaymentComplianceForTest(t)
 	originalPayAddress := operation_setting.PayAddress

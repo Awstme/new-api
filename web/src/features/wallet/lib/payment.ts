@@ -101,6 +101,20 @@ export function isWaffoPayment(paymentType: string): boolean {
 }
 
 /**
+ * Check if payment method is served by MbdPay
+ */
+export function isMbdpayPayment(paymentType: string): boolean {
+  return (
+    paymentType === PAYMENT_TYPES.MBDPAY_ALIPAY ||
+    paymentType === PAYMENT_TYPES.MBDPAY_WXPAY
+  )
+}
+
+export function isMbdpayAlipayPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.MBDPAY_ALIPAY
+}
+
+/**
  * Check if payment method is Waffo Pancake
  *
  * Pancake is a metered-style payment that goes through a dedicated checkout
@@ -187,6 +201,10 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
 
   if (topupInfo.enable_waffo_pancake_topup) {
     return topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
+  }
+
+  if (topupInfo.enable_mbdpay_topup) {
+    return topupInfo.mbdpay_min_topup || DEFAULT_MIN_TOPUP
   }
 
   return DEFAULT_MIN_TOPUP

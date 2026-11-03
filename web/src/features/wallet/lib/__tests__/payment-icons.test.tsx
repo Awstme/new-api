@@ -26,6 +26,8 @@ test.each([
   [PAYMENT_TYPES.ALIPAY, 'Alipay'],
   [PAYMENT_TYPES.WECHAT, 'WeChat'],
   [PAYMENT_TYPES.STRIPE, 'Stripe'],
+  [PAYMENT_TYPES.MBDPAY_ALIPAY, 'Alipay'],
+  [PAYMENT_TYPES.MBDPAY_WXPAY, 'WeChat'],
 ])(
   'the built-in %s icon preserves the requested size and payment color',
   (type, label) => {

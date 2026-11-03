@@ -21,6 +21,7 @@ import { describe, expect, test } from 'vitest'
 import { PAYMENT_TYPES } from '../constants'
 import {
   dispatchSelectedPayment,
+  isMbdpayPayment,
   isStripePayment,
   isWaffoPayment,
   isWaffoPancakePayment,
@@ -33,6 +34,13 @@ describe('payment type classification', () => {
     expect(isWaffoPancakePayment(PAYMENT_TYPES.WAFFO_PANCAKE)).toBe(true)
     expect(isWaffoPancakePayment(PAYMENT_TYPES.WAFFO)).toBe(false)
     expect(isStripePayment(PAYMENT_TYPES.STRIPE)).toBe(true)
+  })
+
+  test('classifies both MbdPay methods and leaves Epay methods untouched', () => {
+    expect(isMbdpayPayment(PAYMENT_TYPES.MBDPAY_ALIPAY)).toBe(true)
+    expect(isMbdpayPayment(PAYMENT_TYPES.MBDPAY_WXPAY)).toBe(true)
+    expect(isMbdpayPayment(PAYMENT_TYPES.WECHAT)).toBe(false)
+    expect(isMbdpayPayment(PAYMENT_TYPES.ALIPAY)).toBe(false)
   })
 })
 

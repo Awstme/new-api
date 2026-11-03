@@ -39,6 +39,7 @@ import type {
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
+  MbdpayPaymentResponse,
 } from './types'
 
 // ============================================================================
@@ -179,6 +180,21 @@ export async function requestWaffoPancakePayment(
     skipBusinessError: true,
   } as Record<string, unknown>)
   return res.data
+}
+
+/**
+ * Request MbdPay payment (Alipay form or WeChat H5 URL)
+ */
+export async function requestMbdpayPayment(
+  request: PaymentRequest
+): Promise<MbdpayPaymentResponse> {
+  const res = await api.post('/api/user/mbdpay/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return {
+    ...res.data,
+    url: res.data.url || (res as unknown as { url?: string }).url,
+  }
 }
 
 /**

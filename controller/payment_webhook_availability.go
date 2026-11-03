@@ -108,3 +108,16 @@ func isEpayWebhookConfigured() bool {
 func isEpayWebhookEnabled() bool {
 	return isEpayTopUpEnabled()
 }
+
+func isMbdpayTopUpEnabled() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	return setting.MbdpayEnabled &&
+		strings.TrimSpace(setting.MbdpayAppId) != "" &&
+		strings.TrimSpace(setting.MbdpayAppKey) != ""
+}
+
+func isMbdpayWebhookEnabled() bool {
+	return isMbdpayTopUpEnabled()
+}

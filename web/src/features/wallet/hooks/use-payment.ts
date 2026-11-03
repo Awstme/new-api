@@ -29,12 +29,15 @@ import {
   calculateWaffoPancakeAmount,
   requestPayment,
   requestStripePayment,
+  requestMbdpayPayment,
   isApiSuccess,
 } from '../api'
 import {
   isStripePayment,
   isWaffoPayment,
   isWaffoPancakePayment,
+  isMbdpayPayment,
+  isMbdpayAlipayPayment,
   submitPaymentForm,
 } from '../lib'
 import type { AmountRequest, AmountResponse } from '../types'
@@ -115,6 +118,39 @@ export function usePayment() {
 
         const isStripe = isStripePayment(paymentType)
         const amount = Math.floor(topupAmount)
+
+        if (isMbdpayPayment(paymentType)) {
+          const mbdpayResponse = await requestMbdpayPayment({
+            amount,
+            payment_method: paymentType,
+          })
+
+          if (!isApiSuccess(mbdpayResponse)) {
+            handleServerError(
+              mbdpayResponse,
+              i18next.t('Payment request failed')
+            )
+            return false
+          }
+
+          if (isMbdpayAlipayPayment(paymentType)) {
+            const url = mbdpayResponse.url
+            if (url && mbdpayResponse.data) {
+              submitPaymentForm(url, mbdpayResponse.data)
+              toast.success(i18next.t('Redirecting to payment page...'))
+              return true
+            }
+            return false
+          }
+
+          const paymentUrl = mbdpayResponse.data?.payment_url
+          if (typeof paymentUrl === 'string' && paymentUrl) {
+            window.location.assign(paymentUrl)
+            toast.success(i18next.t('Redirecting to payment page...'))
+            return true
+          }
+          return false
+        }
 
         const response = isStripe
           ? await requestStripePayment({

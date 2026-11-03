@@ -42,6 +42,9 @@ export type StripePaymentResponse = ApiResponse<{ pay_link: string }>
 export type AffiliateCodeResponse = ApiResponse<string>
 export type AffiliateTransferResponse = ApiResponse
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
+export type MbdpayPaymentResponse = ApiResponse<Record<string, unknown>> & {
+  url?: string
+}
 export type WaffoPaymentResponse = ApiResponse<
   { payment_url?: string } | string
 >
@@ -150,6 +153,10 @@ export interface TopupInfo {
   enable_waffo_pancake_topup?: boolean
   /** Minimum topup amount for Waffo Pancake */
   waffo_pancake_min_topup?: number
+  /** Whether MbdPay topup is enabled */
+  enable_mbdpay_topup?: boolean
+  /** Minimum topup amount for MbdPay */
+  mbdpay_min_topup?: number
   /** Whether redemption code usage is enabled */
   enable_redemption?: boolean
   /** Whether compliance confirmation has been completed */

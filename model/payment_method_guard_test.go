@@ -353,3 +353,37 @@ func TestRechargeEpayEnforcesFinalWalletQuotaLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestRechargeMbdpayCreditsQuotaExactlyOnce(t *testing.T) {
+	truncateTables(t)
+
+	oldQuotaPerUnit := common.QuotaPerUnit
+	common.QuotaPerUnit = 500000
+	t.Cleanup(func() { common.QuotaPerUnit = oldQuotaPerUnit })
+
+	user := insertUserForPaymentGuardTest(t, 601, 0)
+	insertTopUpForPaymentGuardTest(t, "MBDTESTONCE", user.Id, PaymentProviderMbdpay)
+
+	alreadyDone, err := RechargeMbdpay("MBDTESTONCE", "127.0.0.1")
+	require.NoError(t, err)
+	assert.False(t, alreadyDone)
+	assert.Equal(t, 2*500000, getUserQuotaForPaymentGuardTest(t, user.Id))
+	assert.Equal(t, common.TopUpStatusSuccess, getTopUpStatusForPaymentGuardTest(t, "MBDTESTONCE"))
+
+	alreadyDone, err = RechargeMbdpay("MBDTESTONCE", "127.0.0.1")
+	require.NoError(t, err)
+	assert.True(t, alreadyDone)
+	assert.Equal(t, 2*500000, getUserQuotaForPaymentGuardTest(t, user.Id))
+}
+
+func TestRechargeMbdpayRejectsMismatchedPaymentProvider(t *testing.T) {
+	truncateTables(t)
+
+	user := insertUserForPaymentGuardTest(t, 602, 0)
+	insertTopUpForPaymentGuardTest(t, "MBDTESTMISMATCH", user.Id, PaymentProviderEpay)
+
+	_, err := RechargeMbdpay("MBDTESTMISMATCH", "127.0.0.1")
+	require.ErrorIs(t, err, ErrPaymentMethodMismatch)
+	assert.Equal(t, common.TopUpStatusPending, getTopUpStatusForPaymentGuardTest(t, "MBDTESTMISMATCH"))
+	assert.Equal(t, 0, getUserQuotaForPaymentGuardTest(t, user.Id))
+}

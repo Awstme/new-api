@@ -352,6 +352,11 @@ export type BillingSettings = {
   // section (saved via /api/option/waffo-pancake/save).
   WaffoPancakeStoreID: string
   WaffoPancakeProductID: string
+  MbdpayEnabled: boolean
+  MbdpayAppId: string
+  MbdpayAppKey: string
+  MbdpayReturnUrl: string
+  MbdpayMinTopUp: number
   'checkin_setting.enabled': boolean
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number

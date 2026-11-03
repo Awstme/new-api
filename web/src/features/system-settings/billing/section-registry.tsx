@@ -153,6 +153,11 @@ const BILLING_SECTIONS = [
           CreemWebhookSecret: settings.CreemWebhookSecret,
           CreemTestMode: settings.CreemTestMode,
           CreemProducts: settings.CreemProducts,
+          MbdpayEnabled: settings.MbdpayEnabled ?? false,
+          MbdpayAppId: settings.MbdpayAppId ?? '',
+          MbdpayAppKey: settings.MbdpayAppKey ?? '',
+          MbdpayReturnUrl: settings.MbdpayReturnUrl ?? '',
+          MbdpayMinTopUp: settings.MbdpayMinTopUp ?? 1,
         }}
         waffoDefaultValues={{
           WaffoEnabled: settings.WaffoEnabled ?? false,
