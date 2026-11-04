@@ -48,6 +48,8 @@ type Pricing struct {
 	BillingUsageSchema     map[string]jsplugin.UsageFieldSchema `json:"billing_usage_schema,omitempty"`
 	BillingUsageExamples   []jsplugin.UsageExample              `json:"billing_usage_examples,omitempty"`
 	PricingVersion         string                               `json:"pricing_version,omitempty"`
+	DiscountRatio          float64                              `json:"discount_ratio,omitempty"`
+	DiscountGroup          string                               `json:"discount_group,omitempty"`
 }
 
 type PricingVendor struct {
@@ -382,6 +384,10 @@ func updatePricing() {
 					pricing.BillingExpr = expr
 				}
 			}
+		}
+		if discount, groupName, ok := billing_setting.GetModelDiscount(model); ok {
+			pricing.DiscountRatio = discount
+			pricing.DiscountGroup = groupName
 		}
 		usageModel := model
 		plugin, ok := pluginGeneration.GetByModel(model)

@@ -1705,3 +1705,28 @@ func TestPostTextConsumeQuotaLogsMissingUsageAsStructuredContent(t *testing.T) {
 		map[string]any{"key": "Upstream returned no usage, so nothing was charged (possibly an upstream timeout)"},
 	}, other["content_parts"])
 }
+
+func TestCalculateTextQuotaSummaryAppliesModelDiscount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	newInfo := func(discount float64) *relaycommon.RelayInfo {
+		return &relaycommon.RelayInfo{
+			OriginModelName: "discount-model",
+			PriceData: hosttypes.PriceData{
+				ModelRatio:         1,
+				CompletionRatio:    1,
+				ModelDiscountRatio: discount,
+				GroupRatioInfo:     hosttypes.GroupRatioInfo{GroupRatio: 1},
+			},
+			StartTime: time.Now(),
+		}
+	}
+	usage := &dto.Usage{PromptTokens: 1000, CompletionTokens: 100}
+
+	base := calculateTextQuotaSummary(ctx, newInfo(0), usage)
+	discounted := calculateTextQuotaSummary(ctx, newInfo(0.5), usage)
+
+	require.Equal(t, 1100, base.Quota)
+	assert.Equal(t, 550, discounted.Quota)
+}

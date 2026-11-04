@@ -28,17 +28,19 @@ const (
 
 // BillingSetting is managed by config.GlobalConfig.Register.
 // DB keys: billing_setting.billing_mode, billing_setting.billing_expr,
-// billing_setting.plugin_billing_expr
+// billing_setting.plugin_billing_expr, billing_setting.model_discount_groups
 type BillingSetting struct {
-	BillingMode       map[string]string `json:"billing_mode"`
-	BillingExpr       map[string]string `json:"billing_expr"`
-	PluginBillingExpr map[string]string `json:"plugin_billing_expr"`
+	BillingMode         map[string]string    `json:"billing_mode"`
+	BillingExpr         map[string]string    `json:"billing_expr"`
+	PluginBillingExpr   map[string]string    `json:"plugin_billing_expr"`
+	ModelDiscountGroups []ModelDiscountGroup `json:"model_discount_groups"`
 }
 
 var billingSetting = BillingSetting{
-	BillingMode:       make(map[string]string),
-	BillingExpr:       make(map[string]string),
-	PluginBillingExpr: make(map[string]string),
+	BillingMode:         make(map[string]string),
+	BillingExpr:         make(map[string]string),
+	PluginBillingExpr:   make(map[string]string),
+	ModelDiscountGroups: make([]ModelDiscountGroup, 0),
 }
 
 func init() {

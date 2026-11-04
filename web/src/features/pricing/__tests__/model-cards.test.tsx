@@ -38,6 +38,7 @@ import {
 import { CachedPriceCell } from '../components/cached-price-cell'
 import { ModelCard } from '../components/model-card'
 import { ModelCardGrid } from '../components/model-card-grid'
+import { ModelPriceCell } from '../components/model-price-cell'
 import type { PricingModel } from '../types'
 
 function pricingModel(overrides: Partial<PricingModel> = {}): PricingModel {
@@ -839,5 +840,50 @@ describe('model cards', () => {
     expect(spans).toHaveLength(1)
     expect(spans[0]).toHaveClass('bg-amber-500')
     vi.useRealTimers()
+  })
+})
+
+describe('model discount prices', () => {
+  it('shows original and discounted token prices with the group badge', () => {
+    render(
+      <ModelPriceCell
+        model={pricingModel({
+          model_ratio: 1,
+          completion_ratio: 3,
+          enable_groups: ['default'],
+          group_ratio: { default: 1 },
+          discount_ratio: 0.5,
+          discount_group: '五折组',
+        })}
+        options={{ tokenUnit: 'M' }}
+      />
+    )
+
+    expect(screen.getByText('1')).toBeVisible()
+    expect(screen.getByText('3')).toBeVisible()
+    const originals = screen.getAllByTitle('Original price')
+    expect(originals).toHaveLength(2)
+    expect(originals[0]).toHaveTextContent('2')
+    expect(originals[1]).toHaveTextContent('6')
+    expect(screen.getByText('五折组')).toBeVisible()
+  })
+
+  it('shows original and discounted cache prices', () => {
+    render(
+      <CachedPriceCell
+        model={pricingModel({
+          cache_ratio: 0.5,
+          enable_groups: ['default'],
+          group_ratio: { default: 1 },
+          discount_ratio: 0.5,
+          discount_group: '五折组',
+        })}
+        options={{ tokenUnit: 'M' }}
+      />
+    )
+
+    expect(screen.getByText(/\$0\.5/)).toBeVisible()
+    expect(screen.getByTitle('Original price')).toHaveTextContent('$1')
+    expect(screen.getByText('五折组')).toBeVisible()
   })
 })

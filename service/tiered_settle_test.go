@@ -1176,3 +1176,24 @@ func TestSamePriceCacheReadsRemainInInput(t *testing.T) {
 		})
 	}
 }
+
+func TestTryTieredSettleAppliesModelDiscount(t *testing.T) {
+	info := makeRelayInfo(flatExpr, 1.0, 1000, 500)
+	info.TieredBillingSnapshot.DiscountRatio = 0.5
+
+	ok, quota, _ := TryTieredSettle(info, billingexpr.TokenParams{P: 1000, C: 500})
+	require.True(t, ok)
+	assert.Equal(t, 1750, quota)
+}
+
+func TestRefreshTieredBillingGroupKeepsModelDiscount(t *testing.T) {
+	info := makeRelayInfo(flatExpr, 1.0, 1000, 500)
+	snap := info.TieredBillingSnapshot
+	snap.DiscountRatio = 0.5
+	info.PriceData.GroupRatioInfo.GroupRatio = 2.0
+
+	updated, err := refreshTieredBillingGroup(info)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	assert.Equal(t, billingexpr.QuotaRound(snap.EstimatedQuotaBeforeGroup*2.0*0.5), updated.EstimatedQuotaAfterGroup)
+}

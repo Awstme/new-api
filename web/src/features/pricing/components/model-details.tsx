@@ -78,7 +78,11 @@ import {
   type DynamicPriceEntry,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
+import {
+  getAvailableGroups,
+  getModelDiscountRatio,
+  isTokenBasedModel,
+} from '../lib/model-helpers'
 import { withPluginPricing } from '../lib/plugin-pricing'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import {
@@ -648,7 +652,8 @@ function PriceSection(props: {
   const isTokenBased = isTokenBasedModel(props.model)
   const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
   const baseGroupKey = '_base'
-  const baseGroupRatioMap = { [baseGroupKey]: 1 }
+  const discount = getModelDiscountRatio(props.model)
+  const baseGroupRatioMap = { [baseGroupKey]: discount }
   const currency = useSystemConfigStore((state) => state.config.currency)
   const billingTime = useBillingTime(props.model.billing_expr)
   const dynamicSummary = useMemo(
@@ -659,7 +664,7 @@ function PriceSection(props: {
         showRechargePrice: props.showRechargePrice,
         priceRate: props.priceRate,
         usdExchangeRate: props.usdExchangeRate,
-        groupRatioMultiplier: 1,
+        groupRatioMultiplier: discount,
       }),
     // Currency is read indirectly by the price formatter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -669,6 +674,7 @@ function PriceSection(props: {
       props.showRechargePrice,
       props.priceRate,
       props.usdExchangeRate,
+      discount,
       billingTime,
       currency,
     ]
@@ -1167,7 +1173,8 @@ function ProviderGroupPricingSection(
     })
     const formattedPricesByGroup = new Map(
       availableGroups.map((group) => {
-        const ratio = props.groupRatio[group] || 1
+        const ratio =
+          (props.groupRatio[group] || 1) * getModelDiscountRatio(props.model)
         return [
           group,
           getDynamicFormattedPricesByTier(dynamicTiers, {
@@ -1190,7 +1197,9 @@ function ProviderGroupPricingSection(
         <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
         <div className='space-y-3'>
           {availableGroups.map((group) => {
-            const ratio = props.groupRatio[group] || 1
+            const ratio =
+              (props.groupRatio[group] || 1) *
+              getModelDiscountRatio(props.model)
             const formattedPricesByTier =
               formattedPricesByGroup.get(group) ??
               new Map<DynamicPricingTier, Map<string, string>>()
@@ -1352,6 +1361,7 @@ function ProviderGroupPricingSection(
     )
   }
 
+  const discount = getModelDiscountRatio(props.model)
   const renderGroupPrice = (group: string, type: PriceType) =>
     formatGroupPrice(
       props.model,
@@ -1361,7 +1371,8 @@ function ProviderGroupPricingSection(
       showRechargePrice,
       props.priceRate,
       props.usdExchangeRate,
-      props.groupRatio
+      props.groupRatio,
+      discount
     )
   const renderFixedGroupPrice = (group: string) =>
     formatFixedPrice(
@@ -1370,7 +1381,8 @@ function ProviderGroupPricingSection(
       showRechargePrice,
       props.priceRate,
       props.usdExchangeRate,
-      props.groupRatio
+      props.groupRatio,
+      discount
     )
 
   return (
@@ -1396,7 +1408,7 @@ function ProviderGroupPricingSection(
             header: t('Ratio'),
             className: thClass,
             cellClassName: 'text-muted-foreground py-2.5 font-mono',
-            cell: (group) => `${props.groupRatio[group] || 1}x`,
+            cell: (group) => `${(props.groupRatio[group] || 1) * discount}x`,
           },
           ...(isTokenBased
             ? [

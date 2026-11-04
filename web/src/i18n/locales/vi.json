@@ -2848,7 +2848,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Với kênh tùy chỉnh nâng cao, thiết lập này chỉ áp dụng cho các route /v1/responses không chuyển đổi giao thức.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Đối với các triển khai riêng tư, định dạng: https://fastgpt.run/api/openapi",
@@ -7370,6 +7370,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Original price": "Giá gốc",
+    "Model Discounts": "Giảm giá mô hình",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "Nhóm giảm giá áp dụng hệ số khuyến mại cho các mô hình đã chọn. Chợ mô hình hiển thị cả giá gốc và giá giảm.",
+    "No discount groups configured": "Chưa cấu hình nhóm giảm giá",
+    "Add discount group": "Thêm nhóm giảm giá",
+    "Discount (%)": "Giảm giá (%)",
+    "Discount must be greater than 0 and at most 100": "Giảm giá phải lớn hơn 0 và tối đa 100",
+    "Each model can belong to only one enabled discount group": "Mỗi mô hình chỉ có thể thuộc một nhóm giảm giá đang bật",
+    "Discount group name is required": "Cần nhập tên nhóm giảm giá",
+    "Discount group must include at least one model": "Nhóm giảm giá phải có ít nhất một mô hình",
+    "Discount group model must not be empty": "Tên mô hình trong nhóm giảm giá không được để trống",
+    "Invalid discount group configuration": "Cấu hình nhóm giảm giá không hợp lệ",
+    "Discount must be greater than 0 and at most 1": "Giảm giá phải lớn hơn 0 và tối đa 1",
+    "Model {{model}} appears in multiple discount groups": "Mô hình {{model}} xuất hiện trong nhiều nhóm giảm giá"
   }
 }

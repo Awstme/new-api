@@ -81,6 +81,17 @@ type BillingSnapshot struct {
 	ExprVersion               int            `json:"expr_version"`
 	TaskUsageBilling          bool           `json:"task_usage_billing,omitempty"`
 	UsageFacts                map[string]any `json:"usage_facts,omitempty"`
+	// DiscountRatio is the promotional model-group discount frozen at
+	// pre-consume time. Older snapshots omit it, which means no discount.
+	DiscountRatio float64 `json:"discount_ratio,omitempty"`
+}
+
+// DiscountFactor returns the multiplier applied on top of the group ratio.
+func (s *BillingSnapshot) DiscountFactor() float64 {
+	if s == nil || s.DiscountRatio <= 0 || s.DiscountRatio > 1 {
+		return 1
+	}
+	return s.DiscountRatio
 }
 
 // TieredResult holds everything needed after running tiered settlement.

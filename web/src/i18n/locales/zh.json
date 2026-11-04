@@ -2848,7 +2848,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高级自定义渠道仅对 /v1/responses 且不做协议转换的路由生效。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For private deployments, format: https://fastgpt.run/api/openapi": "对于私有部署，格式为：https://fastgpt.run/api/openapi",
@@ -7370,6 +7370,20 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Original price": "原价",
+    "Model Discounts": "模型折扣",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "折扣分组会对手选模型应用促销倍率，模型广场同时显示原价和折后价。",
+    "No discount groups configured": "尚未配置折扣分组",
+    "Add discount group": "添加折扣分组",
+    "Discount (%)": "折扣（%）",
+    "Discount must be greater than 0 and at most 100": "折扣必须大于 0 且不超过 100%",
+    "Each model can belong to only one enabled discount group": "每个模型只能属于一个启用的折扣分组",
+    "Discount group name is required": "请填写折扣分组名称",
+    "Discount group must include at least one model": "折扣分组至少包含一个模型",
+    "Discount group model must not be empty": "折扣分组的模型名不能为空",
+    "Invalid discount group configuration": "折扣分组配置格式无效",
+    "Discount must be greater than 0 and at most 1": "折扣必须大于 0 且不超过 1",
+    "Model {{model}} appears in multiple discount groups": "模型 {{model}} 出现在多个折扣分组中"
   }
 }

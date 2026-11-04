@@ -89,6 +89,10 @@ export type PricingModel = {
   billing_usage_examples?: BillingUsageExample[]
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
+  /** Promotional discount ratio from a model discount group, in (0, 1). */
+  discount_ratio?: number
+  /** Display name of the discount group that sets discount_ratio. */
+  discount_group?: string
   /**
    * Optional model metadata fields reserved for backend-provided catalog data.
    * Keep them data-driven; do not synthesize display values on the client.

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { getCurrencyLabel } from '@/lib/currency'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -30,7 +31,7 @@ import {
   getDynamicPricingSummary,
   isUnconfiguredTaskUsageModel,
 } from '../lib/dynamic-price'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { getModelDiscountRatio, isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import { taskUsageUnitLabel } from '../lib/task-price-display'
 import type { PricingModel, TokenUnit } from '../types'
@@ -41,6 +42,12 @@ export type ModelPriceCellOptions = {
   usdExchangeRate?: number
   showRechargePrice?: boolean
   selectedGroup?: string
+}
+
+type PriceMetric = {
+  label: string
+  value: string
+  originalValue?: string
 }
 
 export function ModelPriceCell(props: {
@@ -56,6 +63,13 @@ export function ModelPriceCell(props: {
   const tokenUnit = options.tokenUnit ?? DEFAULT_TOKEN_UNIT
   const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
   const billingTime = useBillingTime(props.model.billing_expr)
+  const baseGroupRatio = getDynamicDisplayGroupRatio(
+    props.model,
+    options.selectedGroup
+  )
+  const discountRatio = getModelDiscountRatio(props.model)
+  const hasDiscount = discountRatio < 1
+
   const dynamic = useMemo(
     () =>
       getDynamicPricingSummary(props.model, {
@@ -65,10 +79,7 @@ export function ModelPriceCell(props: {
         now: billingTime === undefined ? undefined : new Date(billingTime),
         tokenUnit,
         showCurrencySymbol: false,
-        groupRatioMultiplier: getDynamicDisplayGroupRatio(
-          props.model,
-          options.selectedGroup
-        ),
+        groupRatioMultiplier: baseGroupRatio,
       }),
     // Currency is read indirectly by the price formatter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,49 +89,48 @@ export function ModelPriceCell(props: {
       options.priceRate,
       options.usdExchangeRate,
       options.showRechargePrice,
-      options.selectedGroup,
+      baseGroupRatio,
       billingTime,
       currency,
     ]
   )
-  let metrics: Array<{ label: string; value: string }>
-  const providerCaption = dynamic?.providerCount
-    ? t('{{count}} providers', { count: dynamic.providerCount })
-    : ''
-  const unconfiguredCaption = dynamic?.hasUnconfiguredProviders
-    ? t('Not configured for some providers')
-    : ''
-  let caption = t('{{currency}} / {{unit}} tokens', {
-    currency: currencyLabel,
-    unit: tokenUnitLabel,
-  })
+  const discountedDynamic = useMemo(
+    () =>
+      hasDiscount
+        ? getDynamicPricingSummary(props.model, {
+            priceRate: options.priceRate,
+            usdExchangeRate: options.usdExchangeRate,
+            showRechargePrice: options.showRechargePrice,
+            now: billingTime === undefined ? undefined : new Date(billingTime),
+            tokenUnit,
+            showCurrencySymbol: false,
+            groupRatioMultiplier: baseGroupRatio * discountRatio,
+          })
+        : undefined,
+    // Currency is read indirectly by the price formatter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      props.model,
+      tokenUnit,
+      options.priceRate,
+      options.usdExchangeRate,
+      options.showRechargePrice,
+      baseGroupRatio,
+      discountRatio,
+      hasDiscount,
+      billingTime,
+      currency,
+    ]
+  )
+  const displayDynamic = hasDiscount ? discountedDynamic : dynamic
 
-  if (dynamic) {
-    if (dynamic.isSpecialExpression) {
-      return (
-        <span className='block max-w-full min-w-0'>
-          <span className='text-muted-foreground block truncate text-sm'>
-            {t('Special billing expression')}
-          </span>
-          {providerCaption && (
-            <span className='text-muted-foreground block text-xs'>
-              {[providerCaption, unconfiguredCaption]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
-          )}
-          {props.showExpression !== false && (
-            <code className='text-muted-foreground mt-1 line-clamp-2 block text-xs break-all whitespace-normal'>
-              {dynamic.rawExpression}
-            </code>
-          )}
-        </span>
-      )
-    }
-    const hasRequestPrice = dynamic.primaryEntries.some(
+  const buildDynamicMetrics = (
+    summary: NonNullable<ReturnType<typeof getDynamicPricingSummary>>
+  ): PriceMetric[] => {
+    const hasRequestPrice = summary.primaryEntries.some(
       (entry) => entry.unit === 'request' || entry.unit === 'image'
     )
-    metrics = dynamic.primaryEntries
+    return summary.primaryEntries
       .slice(0, hasRequestPrice ? 3 : 2)
       .map((entry) => {
         const unit = getDynamicPriceUnitLabelKey(entry)
@@ -141,10 +151,57 @@ export function ModelPriceCell(props: {
           value: `${entry.formattedRange ?? entry.formatted}${suffix}`,
         }
       })
+  }
+
+  let metrics: PriceMetric[]
+  const providerCaption = displayDynamic?.providerCount
+    ? t('{{count}} providers', { count: displayDynamic.providerCount })
+    : ''
+  const unconfiguredCaption = displayDynamic?.hasUnconfiguredProviders
+    ? t('Not configured for some providers')
+    : ''
+  let caption = t('{{currency}} / {{unit}} tokens', {
+    currency: currencyLabel,
+    unit: tokenUnitLabel,
+  })
+
+  if (displayDynamic) {
+    if (displayDynamic.isSpecialExpression) {
+      return (
+        <span className='block max-w-full min-w-0'>
+          <span className='text-muted-foreground block truncate text-sm'>
+            {t('Special billing expression')}
+          </span>
+          {providerCaption && (
+            <span className='text-muted-foreground block text-xs'>
+              {[providerCaption, unconfiguredCaption]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
+          {props.showExpression !== false && (
+            <code className='text-muted-foreground mt-1 line-clamp-2 block text-xs break-all whitespace-normal'>
+              {displayDynamic.rawExpression}
+            </code>
+          )}
+        </span>
+      )
+    }
+    const hasRequestPrice = displayDynamic.primaryEntries.some(
+      (entry) => entry.unit === 'request' || entry.unit === 'image'
+    )
+    metrics = buildDynamicMetrics(displayDynamic)
+    if (hasDiscount && dynamic) {
+      const originalMetrics = buildDynamicMetrics(dynamic)
+      metrics = metrics.map((metric, index) => ({
+        ...metric,
+        originalValue: originalMetrics[index]?.value,
+      }))
+    }
     if (metrics.length === 0) {
       return (
         <span className='text-muted-foreground text-sm'>
-          {dynamic.hasUnconfiguredProviders
+          {displayDynamic.hasUnconfiguredProviders
             ? t('Not configured')
             : t('Dynamic Pricing')}
           {providerCaption && (
@@ -157,15 +214,19 @@ export function ModelPriceCell(props: {
         </span>
       )
     }
-    if (dynamic.isTaskUsage || hasRequestPrice) caption = currencyLabel
-    if (dynamic.isTimePricing) caption += ` · ${t('Current period price')}`
-    if (dynamic.isMixedBilling) {
+    if (displayDynamic.isTaskUsage || hasRequestPrice) caption = currencyLabel
+    if (displayDynamic.isTimePricing) {
+      caption += ` · ${t('Current period price')}`
+    }
+    if (displayDynamic.isMixedBilling) {
       caption += ` · ${t('Token or per-call pricing')}`
     }
     if (providerCaption) caption += ` · ${providerCaption}`
     if (unconfiguredCaption) caption += ` · ${unconfiguredCaption}`
-    if (dynamic.tierCount > 1) {
-      caption += ` · ${t('{{count}} tiers', { count: dynamic.tierCount })}`
+    if (displayDynamic.tierCount > 1) {
+      caption += ` · ${t('{{count}} tiers', {
+        count: displayDynamic.tierCount,
+      })}`
     }
   } else {
     if (isUnconfiguredTaskUsageModel(props.model)) {
@@ -187,6 +248,7 @@ export function ModelPriceCell(props: {
         </span>
       )
     }
+    const extraMultiplier = hasDiscount ? discountRatio : 1
     if (tokenBased) {
       metrics = [
         {
@@ -199,8 +261,21 @@ export function ModelPriceCell(props: {
             options.priceRate,
             options.usdExchangeRate,
             options.selectedGroup,
-            false
+            false,
+            extraMultiplier
           ),
+          originalValue: hasDiscount
+            ? formatPrice(
+                props.model,
+                'input',
+                tokenUnit,
+                options.showRechargePrice,
+                options.priceRate,
+                options.usdExchangeRate,
+                options.selectedGroup,
+                false
+              )
+            : undefined,
         },
         {
           label: t('Output'),
@@ -212,8 +287,21 @@ export function ModelPriceCell(props: {
             options.priceRate,
             options.usdExchangeRate,
             options.selectedGroup,
-            false
+            false,
+            extraMultiplier
           ),
+          originalValue: hasDiscount
+            ? formatPrice(
+                props.model,
+                'output',
+                tokenUnit,
+                options.showRechargePrice,
+                options.priceRate,
+                options.usdExchangeRate,
+                options.selectedGroup,
+                false
+              )
+            : undefined,
         },
       ]
     } else {
@@ -226,8 +314,19 @@ export function ModelPriceCell(props: {
             options.priceRate,
             options.usdExchangeRate,
             options.selectedGroup,
-            false
+            false,
+            extraMultiplier
           ),
+          originalValue: hasDiscount
+            ? formatRequestPrice(
+                props.model,
+                options.showRechargePrice,
+                options.priceRate,
+                options.usdExchangeRate,
+                options.selectedGroup,
+                false
+              )
+            : undefined,
         },
       ]
       caption = `${currencyLabel} / ${t('request')}`
@@ -255,14 +354,27 @@ export function ModelPriceCell(props: {
             >
               {metric.value}
             </span>
+            {metric.originalValue && (
+              <span
+                className='text-muted-foreground/60 min-w-0 font-mono text-xs break-words whitespace-normal tabular-nums line-through'
+                title={t('Original price')}
+              >
+                {metric.originalValue}
+              </span>
+            )}
           </span>
         ))}
       </span>
-      <span
-        className='text-muted-foreground block text-xs font-normal break-words whitespace-normal sm:truncate'
-        title={caption}
-      >
-        {caption}
+      <span className='flex flex-wrap items-center gap-1.5'>
+        {hasDiscount && props.model.discount_group && (
+          <Badge variant='warning'>{props.model.discount_group}</Badge>
+        )}
+        <span
+          className='text-muted-foreground block text-xs font-normal break-words whitespace-normal sm:truncate'
+          title={caption}
+        >
+          {caption}
+        </span>
       </span>
     </span>
   )

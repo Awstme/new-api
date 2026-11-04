@@ -2848,7 +2848,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For private deployments, format: https://fastgpt.run/api/openapi": "For private deployments, format: https://fastgpt.run/api/openapi",
@@ -7370,6 +7370,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Original price": "Original price",
+    "Model Discounts": "Model Discounts",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.",
+    "No discount groups configured": "No discount groups configured",
+    "Add discount group": "Add discount group",
+    "Discount (%)": "Discount (%)",
+    "Discount must be greater than 0 and at most 100": "Discount must be greater than 0 and at most 100",
+    "Each model can belong to only one enabled discount group": "Each model can belong to only one enabled discount group",
+    "Discount group name is required": "Discount group name is required",
+    "Discount group must include at least one model": "Discount group must include at least one model",
+    "Discount group model must not be empty": "Discount group model must not be empty",
+    "Invalid discount group configuration": "Invalid discount group configuration",
+    "Discount must be greater than 0 and at most 1": "Discount must be greater than 0 and at most 1",
+    "Model {{model}} appears in multiple discount groups": "Model {{model}} appears in multiple discount groups"
   }
 }
