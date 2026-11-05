@@ -411,6 +411,16 @@ describe('version label presentation', () => {
     ).not.toBeInTheDocument()
   })
 
+  test('hides the header version control when the build has no version', () => {
+    client.setQueryData(STATUS_QUERY_KEY, { version: '' })
+    render(<SystemUpdateAction presentation='version' hideWhenUnavailable />, {
+      wrapper: Wrapper,
+    })
+    expect(
+      screen.queryByRole('button', { name: /System updates/ })
+    ).not.toBeInTheDocument()
+  })
+
   test('retains the version after a failed check and exposes the error in its tooltip and details', async () => {
     const user = userEvent.setup()
     fetchMock.mockResolvedValue(new Response('', { status: 429 }))
