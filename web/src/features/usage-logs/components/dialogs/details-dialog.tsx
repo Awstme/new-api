@@ -242,6 +242,22 @@ function BillingBreakdown(props: {
     })
   }
 
+  const discountRatio = other.model_discount_ratio
+  if (
+    discountRatio != null &&
+    Number.isFinite(discountRatio) &&
+    discountRatio > 0 &&
+    discountRatio < 1
+  ) {
+    const percent = Math.round(discountRatio * 100)
+    rows.push({
+      label: t('Model Discount'),
+      value: other.model_discount_group
+        ? `${other.model_discount_group} (${percent}%)`
+        : `${percent}%`,
+    })
+  }
+
   if (
     !isTieredExpr &&
     (isClaude || hasCacheWrite12h) &&

@@ -37,6 +37,8 @@ type PriceData struct {
 	// ModelDiscountRatio is the promotional discount of the model's discount
 	// group. Zero means no discount.
 	ModelDiscountRatio float64
+	// ModelDiscountGroup is the display name of the matching discount group.
+	ModelDiscountGroup string
 	otherRatios        map[string]float64
 	UsePrice           bool
 	Quota              int // 按次计费的最终额度（MJ / Task）

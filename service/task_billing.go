@@ -155,6 +155,7 @@ func taskBillingOther(task *model.Task) *model.LogOther {
 			other.SetPublic("model_ratio", bc.ModelRatio)
 		}
 		other.SetPublic("group_ratio", bc.GroupRatio)
+		appendModelDiscountInfo(other, types.PriceData{ModelDiscountRatio: bc.ModelDiscount, ModelDiscountGroup: bc.DiscountGroup})
 		if priceData := taskBillingContextPriceData(bc); priceData != nil {
 			for k, v := range priceData.OtherRatios() {
 				if !other.SetPublic(k, v) {

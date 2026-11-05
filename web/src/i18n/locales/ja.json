@@ -7384,6 +7384,7 @@
     "Discount group model must not be empty": "割引グループのモデル名は空にできません",
     "Invalid discount group configuration": "割引グループの設定が無効です",
     "Discount must be greater than 0 and at most 1": "割引は 0 より大きく 1 以下である必要があります",
-    "Model {{model}} appears in multiple discount groups": "モデル {{model}} が複数の割引グループに含まれています"
+    "Model {{model}} appears in multiple discount groups": "モデル {{model}} が複数の割引グループに含まれています",
+    "Model Discount": "モデル割引"
   }
 }

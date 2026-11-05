@@ -7384,6 +7384,7 @@
     "Discount group model must not be empty": "Tên mô hình trong nhóm giảm giá không được để trống",
     "Invalid discount group configuration": "Cấu hình nhóm giảm giá không hợp lệ",
     "Discount must be greater than 0 and at most 1": "Giảm giá phải lớn hơn 0 và tối đa 1",
-    "Model {{model}} appears in multiple discount groups": "Mô hình {{model}} xuất hiện trong nhiều nhóm giảm giá"
+    "Model {{model}} appears in multiple discount groups": "Mô hình {{model}} xuất hiện trong nhiều nhóm giảm giá",
+    "Model Discount": "Giảm giá mô hình"
   }
 }
