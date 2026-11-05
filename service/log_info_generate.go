@@ -111,6 +111,7 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other.SetPublic("cache_ratio", cacheRatio)
 	other.SetPublic("model_price", modelPrice)
 	other.SetPublic("user_group_ratio", userGroupRatio)
+	appendModelDiscountInfo(other, relayInfo.PriceData)
 	other.SetPublic("frt", float64(relayInfo.FirstResponseTime.UnixMilli()-relayInfo.StartTime.UnixMilli()))
 	if relayInfo.ReasoningEffort != "" {
 		other.SetPublic("reasoning_effort", relayInfo.ReasoningEffort)
@@ -332,10 +333,22 @@ func GenerateClaudeOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	return info
 }
 
+func appendModelDiscountInfo(other *model.LogOther, priceData hosttypes.PriceData) {
+	discount := priceData.ModelDiscountRatio
+	if discount <= 0 || discount >= 1 {
+		return
+	}
+	other.SetPublic("model_discount_ratio", discount)
+	if group := priceData.ModelDiscountGroup; group != "" {
+		other.SetPublic("model_discount_group", group)
+	}
+}
+
 func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData hosttypes.PriceData) *model.LogOther {
 	other := model.NewLogOther()
 	other.SetPublic("model_price", priceData.ModelPrice)
 	other.SetPublic("group_ratio", priceData.GroupRatioInfo.GroupRatio)
+	appendModelDiscountInfo(other, priceData)
 	if priceData.GroupRatioInfo.HasSpecialRatio {
 		other.SetPublic("user_group_ratio", priceData.GroupRatioInfo.GroupSpecialRatio)
 	}

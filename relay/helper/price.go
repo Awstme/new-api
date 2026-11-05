@@ -28,16 +28,16 @@ import (
 // modelDiscountRatio resolves the promotional discount for a relay request.
 // The client-facing model name wins so prices shown on the model marketplace
 // match what the request is charged, with the billing model name as fallback.
-func modelDiscountRatio(info *relaycommon.RelayInfo, billingModelName string) float64 {
+func modelDiscountRatio(info *relaycommon.RelayInfo, billingModelName string) (float64, string) {
 	if info != nil {
-		if discount, _, ok := billing_setting.GetModelDiscount(info.GetOriginModelName()); ok {
-			return discount
+		if discount, group, ok := billing_setting.GetModelDiscount(info.GetOriginModelName()); ok {
+			return discount, group
 		}
 	}
-	if discount, _, ok := billing_setting.GetModelDiscount(billingModelName); ok {
-		return discount
+	if discount, group, ok := billing_setting.GetModelDiscount(billingModelName); ok {
+		return discount, group
 	}
-	return 0
+	return 0, ""
 }
 
 func discountFactorOf(discount float64) float64 {
@@ -92,7 +92,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 	billingModelName := info.GetBillingModelName()
 	modelPrice, usePrice := ratio_setting.GetModelPrice(billingModelName, false)
-	discount := modelDiscountRatio(info, billingModelName)
+	discount, discountGroup := modelDiscountRatio(info, billingModelName)
 	discountFactor := discountFactorOf(discount)
 
 	groupRatioInfo := HandleGroupRatio(c, info)
@@ -186,6 +186,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		CompletionRatio:       completionRatio,
 		GroupRatioInfo:        groupRatioInfo,
 		ModelDiscountRatio:    discount,
+		ModelDiscountGroup:    discountGroup,
 		UsePrice:              usePrice,
 		CacheRatio:            cacheRatio,
 		ImageRatio:            imageRatio,
@@ -237,7 +238,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 // ModelPriceHelperPerCall 按次/按量计费的 PriceHelper (MJ、Task)
 func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hosttypes.PriceData, error) {
 	groupRatioInfo := HandleGroupRatio(c, info)
-	discount := modelDiscountRatio(info, info.OriginModelName)
+	discount, discountGroup := modelDiscountRatio(info, info.OriginModelName)
 	discountFactor := discountFactorOf(discount)
 
 	modelPrice, success := ratio_setting.GetModelPrice(info.OriginModelName, true)
@@ -302,6 +303,7 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 		Quota:              quota,
 		GroupRatioInfo:     groupRatioInfo,
 		ModelDiscountRatio: discount,
+		ModelDiscountGroup: discountGroup,
 	}
 	return priceData, nil
 }
@@ -409,7 +411,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 	if err != nil {
 		return hosttypes.PriceData{}, err
 	}
-	discount := modelDiscountRatio(info, billingModelName)
+	discount, discountGroup := modelDiscountRatio(info, billingModelName)
 
 	requestInput, err := ResolveIncomingBillingExprRequestInput(c, info, usedVars["param"])
 	if err != nil {
@@ -477,6 +479,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 		FreeModel:          freeModel,
 		GroupRatioInfo:     groupRatioInfo,
 		ModelDiscountRatio: discount,
+		ModelDiscountGroup: discountGroup,
 		QuotaToPreConsume:  preConsumedQuota,
 	}
 

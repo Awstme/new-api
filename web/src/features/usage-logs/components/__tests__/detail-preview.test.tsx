@@ -501,3 +501,17 @@ test.each(['missing schema', 'unsupported expression', 'unknown tier'])(
     )
   }
 )
+
+test('shows the model discount in the log details', async () => {
+  const preview = renderPreview({
+    model_ratio: 1,
+    completion_ratio: 2,
+    group_ratio: 1,
+    model_discount_ratio: 0.3,
+    model_discount_group: '3折',
+  })
+  fireEvent.click(preview)
+  const dialog = await screen.findByRole('dialog')
+  expect(within(dialog).getByText('Model Discount')).toBeVisible()
+  expect(within(dialog).getByText('3折 (30%)')).toBeVisible()
+})

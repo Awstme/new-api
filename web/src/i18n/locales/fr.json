@@ -7795,6 +7795,7 @@
     "Discount group model must not be empty": "Le nom du modèle du groupe de remise ne doit pas être vide",
     "Invalid discount group configuration": "Configuration du groupe de remise invalide",
     "Discount must be greater than 0 and at most 1": "La remise doit être supérieure à 0 et au plus 1",
-    "Model {{model}} appears in multiple discount groups": "Le modèle {{model}} apparaît dans plusieurs groupes de remise"
+    "Model {{model}} appears in multiple discount groups": "Le modèle {{model}} apparaît dans plusieurs groupes de remise",
+    "Model Discount": "Remise du modèle"
   }
 }

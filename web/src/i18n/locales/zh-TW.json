@@ -7795,6 +7795,7 @@
     "Discount group model must not be empty": "折扣分組的模型名稱不能為空",
     "Invalid discount group configuration": "折扣分組設定格式無效",
     "Discount must be greater than 0 and at most 1": "折扣必須大於 0 且不超過 1",
-    "Model {{model}} appears in multiple discount groups": "模型 {{model}} 出現在多個折扣分組中"
+    "Model {{model}} appears in multiple discount groups": "模型 {{model}} 出現在多個折扣分組中",
+    "Model Discount": "模型折扣"
   }
 }

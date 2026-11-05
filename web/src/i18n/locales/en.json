@@ -7795,6 +7795,7 @@
     "Discount group model must not be empty": "Discount group model must not be empty",
     "Invalid discount group configuration": "Invalid discount group configuration",
     "Discount must be greater than 0 and at most 1": "Discount must be greater than 0 and at most 1",
-    "Model {{model}} appears in multiple discount groups": "Model {{model}} appears in multiple discount groups"
+    "Model {{model}} appears in multiple discount groups": "Model {{model}} appears in multiple discount groups",
+    "Model Discount": "Model Discount"
   }
 }

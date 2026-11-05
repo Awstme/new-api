@@ -802,6 +802,7 @@ func executeTaskSubmissionWith(
 		GroupRatio:      relayInfo.PriceData.GroupRatioInfo.GroupRatio,
 		ModelRatio:      relayInfo.PriceData.ModelRatio,
 		ModelDiscount:   relayInfo.PriceData.ModelDiscountRatio,
+		DiscountGroup:   relayInfo.PriceData.ModelDiscountGroup,
 		OtherRatios:     relayInfo.PriceData.OtherRatios(),
 		OriginModelName: relayInfo.OriginModelName,
 		PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,

@@ -7795,6 +7795,7 @@
     "Discount group model must not be empty": "Название модели в группе скидок не должно быть пустым",
     "Invalid discount group configuration": "Неверная конфигурация группы скидок",
     "Discount must be greater than 0 and at most 1": "Скидка должна быть больше 0 и не более 1",
-    "Model {{model}} appears in multiple discount groups": "Модель {{model}} присутствует в нескольких группах скидок"
+    "Model {{model}} appears in multiple discount groups": "Модель {{model}} присутствует в нескольких группах скидок",
+    "Model Discount": "Скидка на модель"
   }
 }
