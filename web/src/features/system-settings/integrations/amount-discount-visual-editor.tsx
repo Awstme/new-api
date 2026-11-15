@@ -24,6 +24,7 @@ import { StaticDataTable } from '@/components/data-table/static/static-data-tabl
 import { StaticRowActions } from '@/components/data-table/static/static-row-actions'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
+import { formatLocalCurrencyAmount } from '@/lib/currency'
 
 import { safeJsonParseWithValidation } from '../utils/json-parser'
 import { isObjectRecord } from '../utils/json-validators'
@@ -55,11 +56,13 @@ export function AmountDiscountVisualEditor({
 
     return Object.entries(parsed)
       .map(([amount, rate]) => ({
-        amount: Number.parseInt(amount, 10),
+        amount: Number.parseFloat(amount),
         discountRate:
           typeof rate === 'number' ? rate : Number.parseFloat(String(rate)),
       }))
-      .filter((item) => !isNaN(item.amount) && !isNaN(item.discountRate))
+      .filter(
+        (item) => !Number.isNaN(item.amount) && !Number.isNaN(item.discountRate)
+      )
       .sort((a, b) => a.amount - b.amount)
   }, [value])
 
@@ -117,7 +120,9 @@ export function AmountDiscountVisualEditor({
     <div className='space-y-4'>
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
         <p className='text-muted-foreground text-sm'>
-          {t('Configure discount rates based on recharge amounts')}
+          {t(
+            'Configure discount rates based on recharge amounts in site currency'
+          )}
         </p>
         <Button
           type='button'
@@ -152,7 +157,9 @@ export function AmountDiscountVisualEditor({
                 id: 'amount',
                 header: t('Recharge Amount'),
                 cell: (discount) => (
-                  <span className='font-mono text-sm'>${discount.amount}</span>
+                  <span className='font-mono text-sm'>
+                    {formatLocalCurrencyAmount(discount.amount)}
+                  </span>
                 ),
               },
               {
@@ -202,7 +209,7 @@ export function AmountDiscountVisualEditor({
                 <div className='mb-3 flex items-start justify-between'>
                   <div className='flex-1'>
                     <div className='mb-2 font-mono text-base font-medium'>
-                      ${discount.amount}
+                      {formatLocalCurrencyAmount(discount.amount)}
                     </div>
                     <StatusBadge
                       variant={discount.discountRate < 1 ? 'info' : 'neutral'}

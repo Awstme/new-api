@@ -96,7 +96,7 @@ export interface PaymentMethod {
   type: string
   /** Legacy optional color for UI display */
   color?: string
-  /** Minimum topup amount for this payment method */
+  /** Minimum topup amount for this payment method (site currency) */
   min_topup?: number
   /** Optional react-icons component name or safe icon URL */
   icon?: string
@@ -126,11 +126,11 @@ export interface TopupInfo {
   enable_stripe_topup: boolean
   /** Available payment methods */
   pay_methods: PaymentMethod[]
-  /** Minimum topup amount for online topup */
+  /** Minimum topup amount for online topup (site currency) */
   min_topup: number
-  /** Minimum topup amount for Stripe */
+  /** Minimum topup amount for Stripe (site currency) */
   stripe_min_topup: number
-  /** Preset amount options */
+  /** Preset amount options (site currency) */
   amount_options: number[]
   /** Discount rates by amount */
   discount: Record<number, number>
@@ -144,11 +144,11 @@ export interface TopupInfo {
   enable_waffo_topup?: boolean
   /** Available Waffo payment methods */
   waffo_pay_methods?: WaffoPayMethod[]
-  /** Minimum topup amount for Waffo */
+  /** Minimum topup amount for Waffo (site currency) */
   waffo_min_topup?: number
   /** Whether Waffo Pancake topup is enabled */
   enable_waffo_pancake_topup?: boolean
-  /** Minimum topup amount for Waffo Pancake */
+  /** Minimum topup amount for Waffo Pancake (site currency) */
   waffo_pancake_min_topup?: number
   /** Whether redemption code usage is enabled */
   enable_redemption?: boolean
@@ -257,7 +257,7 @@ export interface TopupRecord {
   id: number
   /** User ID */
   user_id: number
-  /** Topup amount (quota) */
+  /** Credited amount in USD (may be fractional) */
   amount: number
   /** Payment amount (actual money paid) */
   money: number
