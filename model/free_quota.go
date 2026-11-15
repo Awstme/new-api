@@ -21,6 +21,7 @@ const (
 	FreeQuotaSourceCheckin    = "checkin"
 	FreeQuotaSourceAdmin      = "admin_add"
 	QuotaSourcePaid           = "paid"
+	quotaGrantInviterTransfer = "inviter_transfer"
 )
 
 var freeQuotaSourceOrder = []string{
@@ -100,6 +101,7 @@ type freeQuotaConsumption struct {
 	Time     int64
 	Type     int
 	Quota    int64
+	TaskId   string
 }
 
 type rangeQuotaConsumption struct {
@@ -222,9 +224,10 @@ func GetFreeQuotaStats(startTimestamp int64, endTimestamp int64) (FreeQuotaStats
 			order = 2
 		}
 		eventsByUser[item.UserId] = append(eventsByUser[item.UserId], freeQuotaEvent{
-			Time:  item.Time,
-			Order: order,
-			Quota: item.Quota,
+			Time:   item.Time,
+			Order:  order,
+			Quota:  item.Quota,
+			TaskId: item.TaskId,
 		})
 	}
 
@@ -328,10 +331,11 @@ func GetFreeQuotaStats(startTimestamp int64, endTimestamp int64) (FreeQuotaStats
 }
 
 type freeQuotaEvent struct {
-	Time  int64
-	Order int
-	Quota int64
-	Grant *freeQuotaGrant
+	Time   int64
+	Order  int
+	Quota  int64
+	Grant  *freeQuotaGrant
+	TaskId string
 }
 
 type freeQuotaBucket struct {
@@ -341,9 +345,12 @@ type freeQuotaBucket struct {
 }
 
 type freeQuotaChunk struct {
+	// Bucket -1 represents normal wallet quota, which must also be tracked so
+	// its refunds cannot restore an unrelated free grant.
 	Bucket int
 	Time   int64
 	Amount int64
+	TaskId string
 }
 
 func simulateFreeQuotaEvents(
@@ -374,7 +381,7 @@ func simulateFreeQuotaEvents(
 			continue
 		}
 		if event.Order == 2 {
-			refundFreeQuotaChunks(userId, amount, &buckets, &chunks, inRange, ensureAggregate, sourceUsed, sourceMethods)
+			refundQuotaChunks(userId, amount, event.TaskId, buckets, chunks, inRange, ensureAggregate, sourceUsed, sourceMethods)
 			continue
 		}
 		for index := range buckets {
@@ -387,7 +394,7 @@ func simulateFreeQuotaEvents(
 			}
 			take := min(bucket.Remaining, amount)
 			bucket.Remaining -= take
-			chunks = append(chunks, freeQuotaChunk{Bucket: index, Time: event.Time, Amount: take})
+			chunks = append(chunks, freeQuotaChunk{Bucket: index, Time: event.Time, Amount: take, TaskId: event.TaskId})
 			amount -= take
 			if !inRange(event.Time) {
 				continue
@@ -401,10 +408,13 @@ func simulateFreeQuotaEvents(
 				aggregate.User.LastUsedAt = event.Time
 			}
 		}
+		if amount > 0 {
+			chunks = append(chunks, freeQuotaChunk{Bucket: -1, Time: event.Time, Amount: amount, TaskId: event.TaskId})
+		}
 	}
 
 	for _, chunk := range chunks {
-		if chunk.Amount <= 0 || !inRange(chunk.Time) {
+		if chunk.Bucket < 0 || chunk.Amount <= 0 || !inRange(chunk.Time) {
 			continue
 		}
 		bucket := buckets[chunk.Bucket]
@@ -423,25 +433,29 @@ type freeQuotaUserAggregate struct {
 	Methods map[string]int64
 }
 
-func refundFreeQuotaChunks(
+func refundQuotaChunks(
 	userId int,
 	amount int64,
-	buckets *[]freeQuotaBucket,
-	chunks *[]freeQuotaChunk,
+	taskId string,
+	buckets []freeQuotaBucket,
+	chunks []freeQuotaChunk,
 	inRange func(int64) bool,
 	ensureAggregate func(string, int) *freeQuotaUserAggregate,
 	sourceUsed map[string]int64,
 	sourceMethods map[string]map[string]int64,
 ) {
-	for index := len(*chunks) - 1; index >= 0 && amount > 0; index-- {
-		chunk := &(*chunks)[index]
-		if chunk.Amount <= 0 {
+	for index := len(chunks) - 1; index >= 0 && amount > 0; index-- {
+		chunk := &chunks[index]
+		if chunk.Amount <= 0 || (taskId != "" && chunk.TaskId != taskId) {
 			continue
 		}
 		take := min(chunk.Amount, amount)
 		chunk.Amount -= take
 		amount -= take
-		bucket := &(*buckets)[chunk.Bucket]
+		if chunk.Bucket < 0 {
+			continue
+		}
+		bucket := &buckets[chunk.Bucket]
 		bucket.Remaining += take
 		if !inRange(chunk.Time) {
 			continue
@@ -514,7 +528,7 @@ func loadSystemGrantEvents(endTimestamp int64, usernames map[int]string) ([]free
 		Select("user_id, username, created_at, content, other").
 		Where("type = ? AND created_at <= ? AND (content LIKE ? OR content LIKE ? OR content LIKE ?)",
 			LogTypeSystem, endTimestamp,
-			"New user sign-up bonus%", "Invitation code bonus%", "Bonus for inviting a user%").
+			"New user sign-up bonus%", "Invitation code bonus%", "Transferred invitation quota%").
 		Find(&rows).Error
 	if err != nil {
 		return nil, err
@@ -531,7 +545,9 @@ func loadSystemGrantEvents(endTimestamp int64, usernames map[int]string) ([]free
 			GrantType  string  `json:"grant_type"`
 		}
 		_ = common.UnmarshalJsonStr(row.Other, &other)
-		if isFreeQuotaSource(other.GrantType) {
+		if other.GrantType == quotaGrantInviterTransfer {
+			source = FreeQuotaSourceInviter
+		} else if isFreeQuotaSource(other.GrantType) {
 			source = other.GrantType
 		}
 		var quota int64
@@ -572,8 +588,8 @@ func systemGrantSource(content string) (string, int, bool) {
 		return FreeQuotaSourceNewUser, common.QuotaForNewUser, true
 	case strings.HasPrefix(content, "Invitation code bonus"):
 		return FreeQuotaSourceInvitee, common.QuotaForInvitee, true
-	case strings.HasPrefix(content, "Bonus for inviting a user"):
-		return FreeQuotaSourceInviter, common.QuotaForInviter, true
+	case strings.HasPrefix(content, "Transferred invitation quota"):
+		return FreeQuotaSourceInviter, 0, true
 	default:
 		return "", 0, false
 	}
@@ -963,17 +979,43 @@ func loadFreeQuotaConsumption(endTimestamp int64, userIDs map[int]struct{}) ([]f
 		CreatedAt int64  `gorm:"column:created_at"`
 		Type      int    `gorm:"column:type"`
 		Quota     int64  `gorm:"column:quota"`
+		Other     string `gorm:"column:other"`
 	}
 	err := LOG_DB.Table("logs").
-		Select("user_id, username, created_at, type, quota").
+		Select("user_id, username, created_at, type, quota, other").
 		Where("user_id IN ? AND created_at <= ? AND type IN ?", ids, endTimestamp, []int{LogTypeConsume, LogTypeRefund}).
+		Order("created_at ASC, id ASC").
 		Find(&rows).Error
 	if err != nil {
 		return nil, nil, err
 	}
+	type taskOwner struct {
+		UserId int
+		TaskId string
+	}
+	billing := make([]struct {
+		Source              string `json:"billing_source"`
+		TaskId              string `json:"task_id"`
+		WalletQuotaDeducted *int64 `json:"wallet_quota_deducted"`
+	}, len(rows))
+	sourcesByTask := make(map[taskOwner]string)
+	for i, row := range rows {
+		_ = common.UnmarshalJsonStr(row.Other, &billing[i])
+		if billing[i].TaskId != "" && billing[i].Source != "" {
+			sourcesByTask[taskOwner{row.UserId, billing[i].TaskId}] = billing[i].Source
+		}
+	}
 	consumption := make([]freeQuotaConsumption, 0, len(rows))
-	for _, row := range rows {
-		if row.Quota <= 0 {
+	for i, row := range rows {
+		source := billing[i].Source
+		if source == "" && billing[i].TaskId != "" {
+			source = sourcesByTask[taskOwner{row.UserId, billing[i].TaskId}]
+		}
+		quota := row.Quota
+		if billing[i].WalletQuotaDeducted != nil {
+			quota = *billing[i].WalletQuotaDeducted
+		}
+		if source == "subscription" || quota <= 0 {
 			continue
 		}
 		if row.Username != "" {
@@ -984,7 +1026,8 @@ func loadFreeQuotaConsumption(endTimestamp int64, userIDs map[int]struct{}) ([]f
 			Username: row.Username,
 			Time:     row.CreatedAt,
 			Type:     row.Type,
-			Quota:    row.Quota,
+			Quota:    quota,
+			TaskId:   billing[i].TaskId,
 		})
 	}
 	return consumption, usernames, nil

@@ -617,8 +617,11 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 		return err
 	}
 
-	// 提交事务
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	RecordQuotaGrantLog(user.Id, quotaGrantInviterTransfer, quota, common.NewMessage("Transferred invitation quota {{quota}}", map[string]any{"quota": logger.FormatQuota(quota)}))
+	return nil
 }
 
 func (user *User) prepareForInsert(tx *gorm.DB) error {
@@ -724,7 +727,7 @@ func (user *User) finishInsert(inviterId int) {
 		}
 		if common.QuotaForInviter > 0 {
 			//_ = IncreaseUserQuota(inviterId, common.QuotaForInviter)
-			RecordQuotaGrantLog(inviterId, "inviter", common.QuotaForInviter, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
+			RecordLog(inviterId, LogTypeSystem, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
 			_ = inviteUser(inviterId)
 		}
 	}
@@ -780,7 +783,7 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 			RecordQuotaGrantLog(user.Id, "invitee", common.QuotaForInvitee, common.NewMessage("Invitation code bonus {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInvitee)}))
 		}
 		if common.QuotaForInviter > 0 {
-			RecordQuotaGrantLog(inviterId, "inviter", common.QuotaForInviter, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
+			RecordLog(inviterId, LogTypeSystem, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
 			_ = inviteUser(inviterId)
 		}
 	}

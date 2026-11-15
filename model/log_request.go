@@ -203,8 +203,10 @@ func withMergedRequestInfo(other string, logCount int, errorRows int, attempts i
 }
 
 type logRequestPolicy struct {
-	StatusCode int `json:"status_code"`
-	AdminInfo  struct {
+	StatusCode           int    `json:"status_code"`
+	BillingSource        string `json:"billing_source"`
+	SubscriptionConsumed *int   `json:"subscription_consumed"`
+	AdminInfo            struct {
 		RequestPolicy []struct {
 			Attempt int `json:"attempt"`
 		} `json:"request_policy"`
@@ -461,14 +463,18 @@ func mergeLogSessionRows(requests []*Log) *Log {
 	logCount := 0
 	summaries := make([]map[string]any, 0, min(len(requests), logSessionRequestLimit))
 	for index, request := range requests {
+		policy := parseLogRequestPolicy(request.Other)
 		merged.Id = max(merged.Id, request.Id)
 		merged.CreatedAt = max(merged.CreatedAt, request.CreatedAt)
-		merged.Quota += request.Quota
+		if request.Type == LogTypeConsume && policy.BillingSource == "subscription" && policy.SubscriptionConsumed != nil {
+			merged.Quota += *policy.SubscriptionConsumed
+		} else {
+			merged.Quota += request.Quota
+		}
 		merged.PromptTokens += request.PromptTokens
 		merged.CompletionTokens += request.CompletionTokens
 		merged.UseTime += request.UseTime
 		merged.IsStream = merged.IsStream || request.IsStream
-		policy := parseLogRequestPolicy(request.Other)
 		logCount += logRequestLogCount(policy)
 		if request.Type == LogTypeError {
 			errorRequests++
@@ -487,12 +493,12 @@ func mergeLogSessionRows(requests []*Log) *Log {
 	}
 	merged.Type = carrier.Type
 	if len(requests) > 1 {
-		merged.Other = withSessionInfo(carrier.Other, summaries, len(requests), errorRequests, logCount)
+		merged.Other = withSessionInfo(carrier.Other, summaries, requests, errorRequests, logCount)
 	}
 	return &merged
 }
 
-func withSessionInfo(other string, requests []map[string]any, requestCount int, errorCount int, logCount int) string {
+func withSessionInfo(other string, summaries []map[string]any, requests []*Log, errorCount int, logCount int) string {
 	if other == "" {
 		other = "{}"
 	}
@@ -500,8 +506,48 @@ func withSessionInfo(other string, requests []map[string]any, requestCount int, 
 	if err := common.UnmarshalJsonStr(other, &values); err != nil {
 		return other
 	}
-	values["session_requests"] = requests
-	values["session_request_count"] = requestCount
+	if values == nil {
+		values = make(map[string]any)
+	}
+	sources := make(map[string]struct{})
+	subscriptionConsumed, walletDeducted := 0, 0
+	for _, request := range requests {
+		if request.Type != LogTypeConsume {
+			continue
+		}
+		billing := parseLogRequestPolicy(request.Other)
+		sources[billing.BillingSource] = struct{}{}
+		if billing.BillingSource == "subscription" {
+			consumed := request.Quota
+			if billing.SubscriptionConsumed != nil {
+				consumed = *billing.SubscriptionConsumed
+			}
+			subscriptionConsumed += consumed
+		} else {
+			walletDeducted += request.Quota
+		}
+	}
+	// Per-subscription balances and IDs belong to individual requests. Keep
+	// only aggregate deductions on a session, including mixed funding sources.
+	for key := range values {
+		if strings.HasPrefix(key, "subscription_") {
+			delete(values, key)
+		}
+	}
+	delete(values, "billing_source")
+	for source := range sources {
+		if len(sources) > 1 {
+			values["billing_source"] = "mixed"
+			break
+		}
+		if source != "" {
+			values["billing_source"] = source
+		}
+	}
+	values["subscription_consumed"] = subscriptionConsumed
+	values["wallet_quota_deducted"] = walletDeducted
+	values["session_requests"] = summaries
+	values["session_request_count"] = len(requests)
 	values["session_error_count"] = errorCount
 	values["session_log_count"] = logCount
 	values["session_window_seconds"] = logSessionWindowSeconds
@@ -581,8 +627,8 @@ type logSummaryRequest struct {
 }
 
 // SummarizeLogs computes request-level totals, error rate, latency and a time
-// series for the same filters used by the log list. A row cap keeps an
-// accidentally unbounded query from exhausting memory.
+// series for relay rows matching the log filters. Oversized queries fail
+// explicitly instead of returning partial totals as a complete summary.
 func SummarizeLogs(filter LogFilter, userId int) (LogSummary, error) {
 	var summary LogSummary
 	query, err := filter.apply(LOG_DB.Table("logs"))
@@ -592,9 +638,10 @@ func SummarizeLogs(filter LogFilter, userId int) (LogSummary, error) {
 	if userId > 0 {
 		query = query.Where("logs.user_id = ?", userId)
 	}
+	query = query.Where("logs.type IN ?", []int{LogTypeConsume, LogTypeError})
 	rows, err := query.
 		Select("logs.id, logs.request_id, logs.type, logs.quota, logs.prompt_tokens, logs.completion_tokens, logs.use_time, logs.created_at, logs.other").
-		Limit(logSummaryRowLimit).
+		Limit(logSummaryRowLimit + 1).
 		Rows()
 	if err != nil {
 		return summary, err
@@ -605,7 +652,12 @@ func SummarizeLogs(filter LogFilter, userId int) (LogSummary, error) {
 	requests := make(map[string]*logSummaryRequest)
 	summary.StatusCodes = make(map[string]int64)
 	minTs, maxTs := int64(0), int64(0)
+	rowCount := 0
 	for rows.Next() {
+		rowCount++
+		if rowCount > logSummaryRowLimit {
+			return LogSummary{}, common.NewMessage("Too many logs to summarize. Narrow the time range or add filters.")
+		}
 		var row logSummaryRow
 		if err := LOG_DB.ScanRows(rows, &row); err != nil {
 			return summary, err

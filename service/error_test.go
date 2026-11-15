@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -175,4 +176,26 @@ func TestRelayErrorHandlerCapturesMaskedUpstreamBody(t *testing.T) {
 	require.NotContains(t, upstreamBody, "sk-secret-value")
 	require.Contains(t, upstreamBody, "[truncated]")
 	require.LessOrEqual(t, len(upstreamBody), upstreamBodyLogLimit+len("... [truncated]"))
+}
+
+func TestAuthorizationBearerTokenIsMasked(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"JSON bearer", `{"error":{"message":"Forbidden"},"Authorization":"Bearer sk-example-secret"}`},
+		{"JSON basic", `{"error":{"message":"Forbidden"},"authorization":"Basic sk-example-secret"}`},
+		{"plain header", "Authorization: Bearer sk-example-secret\nForbidden"},
+		{"single quotes", "'Authorization': 'Bearer sk-example-secret', message: Forbidden"},
+		{"escaped value", `{"authorization":"Bearer sk-example-secret\"suffix","message":"Forbidden"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := &http.Response{StatusCode: http.StatusForbidden, Body: io.NopCloser(strings.NewReader(tc.body))}
+			apiErr := RelayErrorHandler(context.Background(), resp, false)
+			require.NotNil(t, apiErr)
+			assert.NotContains(t, apiErr.GetUpstreamBody(), "sk-example-secret")
+			assert.Contains(t, apiErr.GetUpstreamBody(), "***")
+			assert.Contains(t, apiErr.GetUpstreamBody(), "Forbidden")
+		})
+	}
 }

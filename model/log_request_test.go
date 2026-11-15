@@ -304,3 +304,74 @@ func TestLogSummaryCountsRequests(t *testing.T) {
 	assert.Equal(t, 360, summary.Tpm)
 	assert.NotEmpty(t, summary.Series)
 }
+
+func TestLogSummaryRejectsOversizedRange(t *testing.T) {
+	db := setupLogRequestTestDB(t)
+	// Exercise the public limit with real rows, without generating request payloads.
+	require.NoError(t, db.Exec(`
+WITH RECURSIVE entries(n) AS (
+  SELECT 1 UNION ALL SELECT n + 1 FROM entries WHERE n < 200001
+)
+INSERT INTO logs (request_id, type, created_at, quota)
+SELECT 'request', 2, 100, 1 FROM entries`).Error)
+	summary, err := SummarizeLogs(LogFilter{}, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Narrow the time range")
+	assert.Zero(t, summary.Quota, "a partial total must never look like a complete summary")
+}
+
+func TestSummaryExcludesNonRelayLogs(t *testing.T) {
+	db := setupLogRequestTestDB(t)
+	rows := []*Log{
+		{UserId: 1, RequestId: "request", CreatedAt: 20, Type: LogTypeConsume, Quota: 100, UseTime: 3},
+		{UserId: 1, RequestId: "bonus", CreatedAt: 21, Type: LogTypeSystem, Content: "New user sign-up bonus 100"},
+		{UserId: 1, RequestId: "topup", CreatedAt: 22, Type: LogTypeTopup},
+	}
+	require.NoError(t, db.Create(&rows).Error)
+	summary, err := SummarizeLogs(LogFilter{}, 0)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, summary.Requests)
+	assert.Equal(t, 3, summary.P50)
+}
+
+func TestSessionKeepsCombinedSubscriptionCost(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		first        string
+		second       string
+		source       string
+		subscription int64
+		wallet       int64
+	}{
+		{"subscriptions", `{"billing_source":"subscription","subscription_consumed":10}`, `{"billing_source":"subscription","subscription_consumed":20,"subscription_id":2,"subscription_remain":100}`, "subscription", 30, 0},
+		{"missing consumption", `{"billing_source":"subscription"}`, `{"billing_source":"subscription","subscription_consumed":20}`, "subscription", 30, 0},
+		{"explicit zero", `{"billing_source":"subscription","subscription_consumed":0}`, `{"billing_source":"subscription","subscription_consumed":20}`, "subscription", 20, 0},
+		{"mixed sources", `{"billing_source":"wallet"}`, `{"billing_source":"subscription","subscription_consumed":20}`, "mixed", 20, 10},
+		{"mixed with zero subscription deduction", `{"billing_source":"wallet"}`, `{"billing_source":"subscription","subscription_consumed":0}`, "mixed", 0, 10},
+		{"legacy", `{}`, `{}`, "", 0, 30},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := setupLogRequestTestDB(t)
+			rows := []*Log{
+				{UserId: 1, TokenId: 1, ModelName: "model", RequestId: "a", CreatedAt: 100, Type: LogTypeConsume, Quota: 10, Other: tc.first},
+				{UserId: 1, TokenId: 1, ModelName: "model", RequestId: "b", CreatedAt: 101, Type: LogTypeConsume, Quota: 20, Other: tc.second},
+			}
+			require.NoError(t, db.Create(&rows).Error)
+			sessions, _, err := GetAllLogSessions(LogFilter{}, 0, 10)
+			require.NoError(t, err)
+			require.Len(t, sessions, 1)
+			assert.EqualValues(t, tc.subscription+tc.wallet, sessions[0].Quota)
+			var other map[string]any
+			require.NoError(t, common.UnmarshalJsonStr(sessions[0].Other, &other))
+			assert.EqualValues(t, tc.subscription, other["subscription_consumed"])
+			assert.EqualValues(t, tc.wallet, other["wallet_quota_deducted"])
+			if tc.source == "" {
+				assert.NotContains(t, other, "billing_source")
+			} else {
+				assert.Equal(t, tc.source, other["billing_source"])
+			}
+			assert.NotContains(t, other, "subscription_id")
+			assert.NotContains(t, other, "subscription_remain")
+		})
+	}
+}

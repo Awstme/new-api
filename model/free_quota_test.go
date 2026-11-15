@@ -265,3 +265,116 @@ func TestParseGrantQuota(t *testing.T) {
 	_, ok = parseGrantQuota("no amount here")
 	assert.False(t, ok)
 }
+
+func TestSubscriptionDoesNotConsumeWalletGrant(t *testing.T) {
+	db := setupFreeQuotaTestDB(t)
+	rows := []*Log{
+		{UserId: 1, Username: "alice", RequestId: "grant", CreatedAt: 10, Type: LogTypeSystem, Content: "New user sign-up bonus 100", Other: `{"grant_type":"new_user","grant_quota":100}`},
+		{UserId: 1, Username: "alice", RequestId: "subscription", CreatedAt: 20, Type: LogTypeConsume, Quota: 100, Other: `{"task_id":"subscription-task","billing_source":"subscription","wallet_quota_deducted":0,"subscription_consumed":100}`},
+		// Historical polling logs omitted the source; inherit it from the task's submit log.
+		{UserId: 1, Username: "alice", RequestId: "subscription-delta", CreatedAt: 21, Type: LogTypeConsume, Quota: 50, Other: `{"task_id":"subscription-task"}`},
+		{UserId: 1, Username: "alice", RequestId: "subscription-refund", CreatedAt: 22, Type: LogTypeRefund, Quota: 150, Other: `{"task_id":"subscription-task"}`},
+		{UserId: 1, Username: "alice", RequestId: "wallet", CreatedAt: 40, Type: LogTypeConsume, Quota: 100, Other: `{"billing_source":"wallet"}`},
+	}
+	require.NoError(t, db.Create(&rows).Error)
+	stats, err := GetFreeQuotaStats(35, 50)
+	require.NoError(t, err)
+	assert.EqualValues(t, 100, stats.FreeTotal)
+}
+
+func TestRefundRestoresOnlyTheOriginalGrantSource(t *testing.T) {
+	db := setupFreeQuotaTestDB(t)
+	rows := []*Log{
+		{UserId: 1, Username: "alice", CreatedAt: 10, Type: LogTypeSystem, Content: "New user sign-up bonus 100", Other: `{"grant_type":"new_user","grant_quota":100}`},
+		{UserId: 1, Username: "alice", CreatedAt: 20, Type: LogTypeConsume, Quota: 100, Other: `{"task_id":"first-task"}`},
+		{UserId: 1, Username: "alice", CreatedAt: 21, Type: LogTypeSystem, Content: "Invitation code bonus 100", Other: `{"grant_type":"invitee","grant_quota":100}`},
+		{UserId: 1, Username: "alice", CreatedAt: 22, Type: LogTypeConsume, Quota: 150, Other: `{"task_id":"second-task"}`},
+		{UserId: 1, Username: "alice", CreatedAt: 23, Type: LogTypeRefund, Quota: 50, Other: `{"task_id":"first-task"}`},
+		{UserId: 1, Username: "alice", CreatedAt: 24, Type: LogTypeRefund, Quota: 70, Other: `{"task_id":"second-task"}`},
+	}
+	require.NoError(t, db.Create(&rows).Error)
+	stats, err := GetFreeQuotaStats(15, 30)
+	require.NoError(t, err)
+	used := make(map[string]int64)
+	for _, source := range stats.Sources {
+		used[source.Key] = source.Quota
+	}
+	assert.EqualValues(t, 50, used[FreeQuotaSourceNewUser])
+	assert.EqualValues(t, 80, used[FreeQuotaSourceInvitee])
+	assert.Zero(t, used[QuotaSourcePaid])
+	assert.EqualValues(t, 130, stats.ConsumptionTotal)
+}
+
+func TestPaidTaskRefundDoesNotRestoreFreeGrant(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		refundTask  string
+		refundQuota int
+		wantFree    int64
+	}{
+		{"paid task", "paid-task", 100, 100},
+		{"earlier free task", "free-task", 100, 0},
+		{"partial paid refund", "paid-task", 40, 100},
+		{"unknown task", "unknown", 100, 100},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := setupFreeQuotaTestDB(t)
+			rows := []*Log{
+				{UserId: 1, Username: "alice", RequestId: "grant", CreatedAt: 10, Type: LogTypeSystem, Content: "New user sign-up bonus 100", Other: `{"grant_type":"new_user","grant_quota":100}`},
+				{UserId: 1, Username: "alice", RequestId: "free-task", CreatedAt: 20, Type: LogTypeConsume, Quota: 100, Other: `{"task_id":"free-task"}`},
+				{UserId: 1, Username: "alice", RequestId: "paid-task", CreatedAt: 21, Type: LogTypeConsume, Quota: 100, Other: `{"task_id":"paid-task"}`},
+				{UserId: 1, Username: "alice", RequestId: "refund", CreatedAt: 22, Type: LogTypeRefund, Quota: tc.refundQuota, Other: common.MapToJsonStr(map[string]any{"task_id": tc.refundTask})},
+			}
+			require.NoError(t, db.Create(&rows).Error)
+			stats, err := GetFreeQuotaStats(15, 30)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantFree, stats.FreeTotal)
+			assert.EqualValues(t, 200-tc.refundQuota, stats.ConsumptionTotal)
+		})
+	}
+}
+
+func TestUntransferredInviterBonusIsNotWalletGrant(t *testing.T) {
+	db := setupFreeQuotaTestDB(t)
+	require.NoError(t, db.Exec("INSERT INTO users (id, username) VALUES (1, 'alice')").Error)
+	rows := []*Log{
+		{UserId: 1, Username: "alice", RequestId: "grant", CreatedAt: 10, Type: LogTypeSystem, Content: "Bonus for inviting a user 100", Other: `{"grant_type":"inviter","grant_quota":100}`},
+		{UserId: 1, Username: "alice", RequestId: "wallet", CreatedAt: 20, Type: LogTypeConsume, Quota: 100},
+	}
+	require.NoError(t, db.Create(&rows).Error)
+	stats, err := GetFreeQuotaStats(15, 30)
+	require.NoError(t, err)
+	assert.Zero(t, stats.FreeTotal)
+}
+
+func TestInvitationTransferRecordsOnlyCreditedQuota(t *testing.T) {
+	db := setupFreeQuotaTestDB(t)
+	require.NoError(t, db.AutoMigrate(&User{}))
+	previousQuotaPerUnit := common.QuotaPerUnit
+	common.QuotaPerUnit = 100
+	t.Cleanup(func() { common.QuotaPerUnit = previousQuotaPerUnit })
+	user := User{Id: 1, Username: "inviter", Quota: 500, AffQuota: 200}
+	require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(&user).Error)
+	require.NoError(t, user.TransferAffQuotaToQuota(100))
+	var stored User
+	require.NoError(t, db.First(&stored, user.Id).Error)
+	assert.Equal(t, 600, stored.Quota)
+	assert.Equal(t, 100, stored.AffQuota)
+	var grants []Log
+	require.NoError(t, db.Where("type = ?", LogTypeSystem).Find(&grants).Error)
+	require.Len(t, grants, 1)
+	var other map[string]any
+	require.NoError(t, common.UnmarshalJsonStr(grants[0].Other, &other))
+	assert.Equal(t, "inviter_transfer", other["grant_type"])
+	assert.EqualValues(t, 100, other["grant_quota"])
+	grantTime := grants[0].CreatedAt
+	require.NoError(t, db.Create(&Log{UserId: user.Id, Username: user.Username, Type: LogTypeConsume, CreatedAt: grantTime + 1, Quota: 50}).Error)
+	stats, err := GetFreeQuotaStats(grantTime, grantTime+1)
+	require.NoError(t, err)
+	assert.EqualValues(t, 100, stats.Granted)
+	assert.EqualValues(t, 50, stats.FreeTotal)
+	require.Error(t, user.TransferAffQuotaToQuota(200))
+	var count int64
+	require.NoError(t, db.Model(&Log{}).Where("type = ?", LogTypeSystem).Count(&count).Error)
+	assert.EqualValues(t, 1, count, "failed transfers cannot grant quota")
+}
