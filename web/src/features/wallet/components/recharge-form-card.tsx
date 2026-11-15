@@ -34,11 +34,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { formatNumber } from '@/lib/format'
+import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 
 import {
-  formatCurrency,
   getDiscountLabel,
   getPaymentIcon,
   getMinTopupAmount,
@@ -70,8 +69,6 @@ interface RechargeFormCardProps {
   redeeming: boolean
   topupLink?: string
   loading?: boolean
-  priceRatio?: number
-  usdExchangeRate?: number
   onOpenBilling?: () => void
   creemProducts?: CreemProduct[]
   enableCreemTopup?: boolean
@@ -100,8 +97,6 @@ export function RechargeFormCard({
   redeeming,
   topupLink,
   loading,
-  priceRatio = 1,
-  usdExchangeRate = 1,
   onOpenBilling,
   creemProducts,
   enableCreemTopup,
@@ -124,8 +119,8 @@ export function RechargeFormCard({
 
   const handleAmountChange = (value: string) => {
     setLocalAmount(value)
-    const numValue = Number.parseInt(value) || 0
-    if (numValue >= 0) {
+    const numValue = Number.parseFloat(value)
+    if (Number.isFinite(numValue) && numValue >= 0) {
       onTopupAmountChange(numValue)
     }
   }
@@ -237,12 +232,7 @@ export function RechargeFormCard({
                         actualPrice,
                         savedAmount,
                         hasDiscount,
-                      } = calculatePresetPricing(
-                        preset.value,
-                        priceRatio,
-                        discount,
-                        usdExchangeRate
-                      )
+                      } = calculatePresetPricing(preset.value, discount)
                       return (
                         <Button
                           key={preset.value}
@@ -257,7 +247,7 @@ export function RechargeFormCard({
                         >
                           <div className='flex w-full items-center justify-between'>
                             <div className='text-base font-semibold sm:text-lg'>
-                              {formatNumber(displayValue)}
+                              {formatLocalCurrencyAmount(displayValue)}
                             </div>
                             {hasDiscount && (
                               <div className='text-xs font-medium text-green-600'>
@@ -271,8 +261,9 @@ export function RechargeFormCard({
                                 t={t}
                                 i18nKey='Pay {{amount}} <savings>• Save {{saved}}</savings>'
                                 values={{
-                                  amount: formatCurrency(actualPrice),
-                                  saved: formatCurrency(savedAmount),
+                                  amount:
+                                    formatLocalCurrencyAmount(actualPrice),
+                                  saved: formatLocalCurrencyAmount(savedAmount),
                                 }}
                                 components={{
                                   savings: <span className='text-green-600' />,
@@ -280,7 +271,7 @@ export function RechargeFormCard({
                               />
                             ) : (
                               t('Pay {{amount}}', {
-                                amount: formatCurrency(actualPrice),
+                                amount: formatLocalCurrencyAmount(actualPrice),
                               })
                             )}
                           </div>
@@ -302,10 +293,13 @@ export function RechargeFormCard({
                   <Input
                     id='topup-amount'
                     type='number'
+                    step='0.01'
                     value={localAmount}
                     onChange={(e) => handleAmountChange(e.target.value)}
                     min={minTopup}
-                    placeholder={t('Minimum {{amount}}', { amount: minTopup })}
+                    placeholder={t('Minimum {{amount}}', {
+                      amount: formatLocalCurrencyAmount(minTopup),
+                    })}
                     className='h-9 text-base sm:h-10 sm:text-lg'
                   />
                   <div className='bg-muted/30 flex min-h-9 items-center justify-between gap-2 rounded-md border px-3 lg:min-w-52'>
@@ -316,7 +310,7 @@ export function RechargeFormCard({
                       <Skeleton className='h-5 w-16' />
                     ) : (
                       <span className='text-sm font-semibold'>
-                        {formatCurrency(paymentAmount)}
+                        {formatLocalCurrencyAmount(paymentAmount)}
                       </span>
                     )}
                   </div>

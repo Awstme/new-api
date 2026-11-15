@@ -118,7 +118,7 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 
 	topUp := &model.TopUp{
 		UserId:          id,
-		Amount:          req.Amount,
+		Amount:          float64(req.Amount),
 		Money:           chargedMoney,
 		TradeNo:         referenceId,
 		PaymentMethod:   model.PaymentMethodStripe,
@@ -433,7 +433,7 @@ func getStripePayMoney(amount float64, group string) float64 {
 	}
 	// apply optional preset discount by the original request amount (if configured), default 1.0
 	discount := 1.0
-	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[int(originalAmount)]; ok {
+	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[strconv.FormatInt(int64(originalAmount), 10)]; ok {
 		if ds > 0 {
 			discount = ds
 		}

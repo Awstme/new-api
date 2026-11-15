@@ -24,6 +24,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatLocalCurrencyAmount } from '@/lib/currency'
 
 import { safeJsonParseWithValidation } from '../utils/json-parser'
 import { isArray } from '../utils/json-validators'
@@ -49,14 +50,14 @@ export function AmountOptionsVisualEditor({
     })
 
     return parsed
-      .filter((item) => typeof item === 'number' || !isNaN(Number(item)))
+      .filter((item) => typeof item === 'number' || !Number.isNaN(Number(item)))
       .map(Number)
       .sort((a, b) => a - b)
   }, [value, t])
 
   const handleAdd = () => {
-    const amount = parseFloat(newAmount)
-    if (isNaN(amount) || amount <= 0) {
+    const amount = Number.parseFloat(newAmount)
+    if (Number.isNaN(amount) || amount <= 0) {
       return
     }
 
@@ -94,7 +95,7 @@ export function AmountOptionsVisualEditor({
     <div className='space-y-4'>
       <div>
         <p className='text-muted-foreground mb-3 text-sm'>
-          {t('Preset recharge amounts displayed to users')}
+          {t('Preset recharge amounts in site currency displayed to users')}
         </p>
 
         {amounts.length === 0 ? (
@@ -112,7 +113,9 @@ export function AmountOptionsVisualEditor({
                 className='text-base'
                 copyable={false}
               >
-                <span className='font-mono'>${amount}</span>
+                <span className='font-mono'>
+                  {formatLocalCurrencyAmount(amount)}
+                </span>
                 <Button
                   type='button'
                   variant='ghost'
@@ -123,7 +126,9 @@ export function AmountOptionsVisualEditor({
                     handleRemove(amount)
                   }}
                   className='hover:bg-muted-foreground/20 size-auto p-0.5'
-                  aria-label={t('Remove ${{amount}}', { amount })}
+                  aria-label={t('Remove {{amount}}', {
+                    amount: formatLocalCurrencyAmount(amount),
+                  })}
                 >
                   <X className='h-3.5 w-3.5' />
                 </Button>
@@ -156,7 +161,7 @@ export function AmountOptionsVisualEditor({
             e.stopPropagation()
             handleAdd()
           }}
-          disabled={!newAmount || parseFloat(newAmount) <= 0}
+          disabled={!newAmount || Number.parseFloat(newAmount) <= 0}
           className='w-full sm:w-auto'
         >
           <Plus className='h-4 w-4 sm:mr-2' />

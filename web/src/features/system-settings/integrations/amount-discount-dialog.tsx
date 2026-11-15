@@ -37,10 +37,7 @@ import { Input } from '@/components/ui/input'
 
 const createAmountDiscountDialogSchema = (t: (key: string) => string) =>
   z.object({
-    amount: z
-      .number()
-      .positive(t('Amount must be greater than 0'))
-      .int(t('Amount must be a whole number')),
+    amount: z.number().positive(t('Amount must be greater than 0')),
     discountRate: z
       .number()
       .positive(t('Discount rate must be greater than 0'))
@@ -147,16 +144,16 @@ export function AmountDiscountDialog({
             name='amount'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('Recharge Amount (USD)')}</FormLabel>
+                <FormLabel>{t('Recharge Amount (site currency)')}</FormLabel>
                 <FormControl>
                   <Input
                     type='number'
-                    step='1'
-                    min='1'
+                    step='0.01'
+                    min='0.01'
                     placeholder={t('e.g., 100')}
                     {...field}
                     onChange={(e) =>
-                      field.onChange(parseInt(e.target.value) || 0)
+                      field.onChange(Number.parseFloat(e.target.value) || 0)
                     }
                     disabled={isEditMode}
                   />
@@ -188,7 +185,7 @@ export function AmountDiscountDialog({
                     placeholder={t('e.g., 0.95')}
                     {...field}
                     onChange={(e) =>
-                      field.onChange(parseFloat(e.target.value) || 0)
+                      field.onChange(Number.parseFloat(e.target.value) || 0)
                     }
                   />
                 </FormControl>

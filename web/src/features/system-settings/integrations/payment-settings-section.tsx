@@ -965,7 +965,7 @@ export function PaymentSettingsSection({
                         </FormControl>
                         <FormDescription>
                           {t(
-                            'How much to charge for each US dollar of balance (Epay)'
+                            'Site-currency amount that equals 1 USD of balance (Epay)'
                           )}
                         </FormDescription>
                         <FormMessage />
@@ -978,7 +978,9 @@ export function PaymentSettingsSection({
                     name='MinTopUp'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('Minimum top-up (USD)')}</FormLabel>
+                        <FormLabel>
+                          {t('Minimum top-up (site currency)')}
+                        </FormLabel>
                         <FormControl>
                           <Input
                             type='number'
@@ -988,7 +990,9 @@ export function PaymentSettingsSection({
                           />
                         </FormControl>
                         <FormDescription>
-                          {t('Smallest USD amount users can recharge (Epay)')}
+                          {t(
+                            'Smallest amount users can recharge (Epay, site currency)'
+                          )}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1112,7 +1116,9 @@ export function PaymentSettingsSection({
                           )}
                         </FormControl>
                         <FormDescription>
-                          {t('Preset recharge amounts (JSON array)')}
+                          {t(
+                            'Preset recharge amounts in site currency (JSON array)'
+                          )}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1172,7 +1178,9 @@ export function PaymentSettingsSection({
                           )}
                         </FormControl>
                         <FormDescription>
-                          {t('Discount map by recharge amount (JSON object)')}
+                          {t(
+                            'Discount map by recharge amount in site currency (JSON object)'
+                          )}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

@@ -49,21 +49,6 @@ export function formatQuotaShort(quota: number): string {
 }
 
 /**
- * Format currency amount that is already in local currency.
- * This is used for payment amounts that have been calculated via priceRatio.
- */
-export function formatCurrency(amount: number | string): string {
-  const numeric =
-    typeof amount === 'number' ? amount : Number.parseFloat(String(amount))
-  if (!Number.isFinite(numeric)) return '-'
-
-  return new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: Math.abs(numeric) >= 1 ? 2 : 4,
-  }).format(numeric)
-}
-
-/**
  * Get discount label for display (e.g., "20% OFF")
  */
 export function getDiscountLabel(discount: number, t: TFunction): string {
@@ -75,19 +60,15 @@ export function getDiscountLabel(discount: number, t: TFunction): string {
 }
 
 /**
- * Calculate pricing details for a preset amount
+ * Calculate pricing details for a preset amount.
+ * The preset value is the amount the user pays in the site currency.
  */
-export function calculatePresetPricing(
-  presetValue: number,
-  priceRatio: number,
-  discount: number,
-  usdExchangeRate: number = 1
-) {
-  const originalPrice = presetValue * priceRatio
+export function calculatePresetPricing(presetValue: number, discount: number) {
+  const originalPrice = presetValue
   const actualPrice = originalPrice * discount
   const savedAmount = originalPrice - actualPrice
   const hasDiscount = discount < 1.0
-  const displayValue = presetValue * usdExchangeRate
+  const displayValue = presetValue
 
   return {
     displayValue,

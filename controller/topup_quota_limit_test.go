@@ -20,50 +20,42 @@ import (
 
 func TestTopUpQuotaValidation(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
-	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	oldPrice := operation_setting.Price
 	common.QuotaPerUnit = 500000
+	operation_setting.Price = 1
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		operation_setting.Price = oldPrice
 	})
 
 	testCases := []struct {
-		name        string
-		displayType string
-		amount      int64
-		wantQuota   int
-		wantErr     bool
+		name      string
+		amount    string
+		wantQuota int
+		wantErr   bool
 	}{
 		{
-			name:        "currency amount below limit",
-			displayType: operation_setting.QuotaDisplayTypeUSD,
-			amount:      4294,
-			wantQuota:   2_147_000_000,
+			name:      "currency amount below limit",
+			amount:    "4294",
+			wantQuota: 2_147_000_000,
 		},
 		{
-			name:        "currency amount above limit",
-			displayType: operation_setting.QuotaDisplayTypeUSD,
-			amount:      4295,
-			wantQuota:   2_147_500_000,
+			name:      "currency amount above limit",
+			amount:    "4295",
+			wantQuota: 2_147_500_000,
 		},
 		{
-			name:        "token amount preserves settlement truncation",
-			displayType: operation_setting.QuotaDisplayTypeTokens,
-			amount:      2_147_500_000,
-			wantQuota:   2_147_500_000,
-		},
-		{
-			name:        "token amount above legacy int32 range",
-			displayType: operation_setting.QuotaDisplayTypeTokens,
-			amount:      4_294_500_000,
-			wantQuota:   4_294_500_000,
+			name:      "fractional payment amount",
+			amount:    "9.9",
+			wantQuota: 4_950_000,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			operation_setting.GetGeneralSetting().QuotaDisplayType = tc.displayType
-			quota, err := getTopUpQuota(tc.amount)
+			amount, err := decimal.NewFromString(tc.amount)
+			require.NoError(t, err)
+			quota, err := getTopUpQuota(amount)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -74,34 +66,62 @@ func TestTopUpQuotaValidation(t *testing.T) {
 	}
 }
 
-func TestValidateTopUpQuotaReturnsMaximumAmount(t *testing.T) {
+func TestTopUpQuotaConvertsPaymentAmountByPrice(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
-	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	oldPrice := operation_setting.Price
+	oldTopupGroupRatio := common.TopupGroupRatio2JSONString()
+	oldOptions := operation_setting.GetPaymentSetting().AmountOptions
+	oldDiscounts := operation_setting.GetPaymentSetting().AmountDiscount
 	common.QuotaPerUnit = 500000
-	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	operation_setting.Price = 7
+	operation_setting.GetPaymentSetting().AmountOptions = []float64{9.9, 19.9}
+	operation_setting.GetPaymentSetting().AmountDiscount = map[string]float64{"9.9": 0.9}
+	require.NoError(t, common.UpdateTopupGroupRatioByJSONString(`{"default":1}`))
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		operation_setting.Price = oldPrice
+		operation_setting.GetPaymentSetting().AmountOptions = oldOptions
+		operation_setting.GetPaymentSetting().AmountDiscount = oldDiscounts
+		require.NoError(t, common.UpdateTopupGroupRatioByJSONString(oldTopupGroupRatio))
+	})
+
+	amount := decimal.RequireFromString("9.9")
+	quota, err := getTopUpQuota(amount)
+	require.NoError(t, err)
+	assert.Equal(t, 707143, quota)
+	assert.True(t, decimal.RequireFromString("9.9").Div(decimal.NewFromInt(7)).Equal(getCreditAmount(amount)))
+	assert.Equal(t, 8.91, getPayMoney(amount, "default"))
+	assert.Equal(t, 19.9, getPayMoney(decimal.RequireFromString("19.9"), "default"))
+}
+
+func TestValidateTopUpQuotaReturnsMaximumAmount(t *testing.T) {
+	oldQuotaPerUnit := common.QuotaPerUnit
+	oldPrice := operation_setting.Price
+	common.QuotaPerUnit = 500000
+	operation_setting.Price = 1
+	t.Cleanup(func() {
+		common.QuotaPerUnit = oldQuotaPerUnit
+		operation_setting.Price = oldPrice
 	})
 
 	maxAmount := decimal.NewFromInt(common.MaxWalletQuota).
 		Div(decimal.NewFromFloat(common.QuotaPerUnit)).
-		Floor().IntPart()
+		Floor()
 
 	_, err := validateTopUpQuota(maxAmount)
 	require.NoError(t, err)
-	_, err = validateTopUpQuota(maxAmount + 1)
-	require.EqualError(t, err, fmt.Sprintf("Top-up amount cannot exceed %d", maxAmount))
+	_, err = validateTopUpQuota(maxAmount.Add(decimal.NewFromInt(1)))
+	require.EqualError(t, err, fmt.Sprintf("Top-up amount cannot exceed %s", maxAmount.String()))
 }
 
 func TestRequestAmountRejectsTopUpThatCannotBeSettled(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
-	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	oldPrice := operation_setting.Price
 	common.QuotaPerUnit = 500000
-	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	operation_setting.Price = 1
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		operation_setting.Price = oldPrice
 	})
 
 	gin.SetMode(gin.TestMode)
@@ -109,26 +129,43 @@ func TestRequestAmountRejectsTopUpThatCannotBeSettled(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(recorder)
 	maxAmount := decimal.NewFromInt(common.MaxWalletQuota).
 		Div(decimal.NewFromFloat(common.QuotaPerUnit)).
-		Floor().IntPart()
+		Floor()
 	ctx.Request = httptest.NewRequest(
 		http.MethodPost,
 		"/api/user/amount",
-		strings.NewReader(fmt.Sprintf(`{"amount":%d}`, maxAmount+1)),
+		strings.NewReader(fmt.Sprintf(`{"amount":%s}`, maxAmount.Add(decimal.NewFromInt(1)).String())),
 	)
 	ctx.Request.Header.Set("Content-Type", "application/json")
 
 	RequestAmount(ctx)
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.JSONEq(t, fmt.Sprintf(`{"message":"error","data":"Top-up amount cannot exceed %d","message_key":"Top-up amount cannot exceed {{max}}","message_params":{"max":%d}}`, maxAmount, maxAmount), recorder.Body.String())
+	maxAmountText := maxAmount.String()
+	assert.JSONEq(t, fmt.Sprintf(`{"message":"error","data":"Top-up amount cannot exceed %s","message_key":"Top-up amount cannot exceed {{max}}","message_params":{"max":"%s"}}`, maxAmountText, maxAmountText), recorder.Body.String())
+}
+
+func TestEpayAmountRequestBindsFractionalAmount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(
+		http.MethodPost,
+		"/api/user/pay",
+		strings.NewReader(`{"amount":9.9,"payment_method":"alipay"}`),
+	)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	var req EpayRequest
+	require.NoError(t, ctx.ShouldBindJSON(&req))
+	assert.True(t, decimal.RequireFromString("9.9").Equal(req.Amount))
+	assert.Equal(t, "alipay", req.PaymentMethod)
 }
 
 func TestRequestAmountRejectsTopUpThatWouldOverflowWallet(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
-	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	oldPrice := operation_setting.Price
 	oldDB := model.DB
 	common.QuotaPerUnit = 500000
-	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	operation_setting.Price = 1
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -136,7 +173,7 @@ func TestRequestAmountRejectsTopUpThatWouldOverflowWallet(t *testing.T) {
 	model.DB = db
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
-		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		operation_setting.Price = oldPrice
 		model.DB = oldDB
 		sqlDB, dbErr := db.DB()
 		if dbErr == nil {

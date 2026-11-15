@@ -23,6 +23,11 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// siteAmountFromCredit 把按额度计价渠道的最小额度换算为站内货币实付金额。
+func siteAmountFromCredit(credit int) float64 {
+	return float64(credit) * operation_setting.Price
+}
+
 func GetTopUpInfo(c *gin.Context) {
 	complianceConfirmed := operation_setting.IsPaymentComplianceConfirmed()
 
@@ -48,7 +53,7 @@ func GetTopUpInfo(c *gin.Context) {
 				"name":      "Stripe",
 				"type":      "stripe",
 				"color":     "#635BFF",
-				"min_topup": strconv.Itoa(setting.StripeMinTopUp),
+				"min_topup": strconv.FormatFloat(siteAmountFromCredit(setting.StripeMinTopUp), 'f', -1, 64),
 			}
 			payMethods = append(payMethods, stripeMethod)
 		}
@@ -70,7 +75,7 @@ func GetTopUpInfo(c *gin.Context) {
 				"name":      "Waffo Pancake",
 				"type":      model.PaymentMethodWaffoPancake,
 				"color":     "#F97316",
-				"min_topup": strconv.Itoa(setting.WaffoPancakeMinTopUp),
+				"min_topup": strconv.FormatFloat(siteAmountFromCredit(setting.WaffoPancakeMinTopUp), 'f', -1, 64),
 			})
 		}
 	}
@@ -91,7 +96,7 @@ func GetTopUpInfo(c *gin.Context) {
 				"name":      "Waffo (Global Payment)",
 				"type":      model.PaymentMethodWaffo,
 				"color":     "#3B82F6",
-				"min_topup": strconv.Itoa(setting.WaffoMinTopUp),
+				"min_topup": strconv.FormatFloat(siteAmountFromCredit(setting.WaffoMinTopUp), 'f', -1, 64),
 			}
 			payMethods = append(payMethods, waffoMethod)
 		}
@@ -115,9 +120,9 @@ func GetTopUpInfo(c *gin.Context) {
 		"creem_products":          setting.CreemProducts,
 		"pay_methods":             payMethods,
 		"min_topup":               operation_setting.MinTopUp,
-		"stripe_min_topup":        setting.StripeMinTopUp,
-		"waffo_min_topup":         setting.WaffoMinTopUp,
-		"waffo_pancake_min_topup": setting.WaffoPancakeMinTopUp,
+		"stripe_min_topup":        siteAmountFromCredit(setting.StripeMinTopUp),
+		"waffo_min_topup":         siteAmountFromCredit(setting.WaffoMinTopUp),
+		"waffo_pancake_min_topup": siteAmountFromCredit(setting.WaffoPancakeMinTopUp),
 		"amount_options":          operation_setting.GetPaymentSetting().AmountOptions,
 		"discount":                operation_setting.GetPaymentSetting().AmountDiscount,
 		"topup_link":              common.TopUpLink,
@@ -126,12 +131,12 @@ func GetTopUpInfo(c *gin.Context) {
 }
 
 type EpayRequest struct {
-	Amount        int64  `json:"amount"`
-	PaymentMethod string `json:"payment_method"`
+	Amount        decimal.Decimal `json:"amount"`
+	PaymentMethod string          `json:"payment_method"`
 }
 
 type AmountRequest struct {
-	Amount int64 `json:"amount"`
+	Amount decimal.Decimal `json:"amount"`
 }
 
 func GetEpayClient() *epay.Client {
@@ -156,77 +161,64 @@ func GetEpayClient() *epay.Client {
 	return withUrl
 }
 
-func getPayMoney(amount int64, group string) float64 {
-	dAmount := decimal.NewFromInt(amount)
-	// 充值金额以“展示类型”为准：
-	// - USD/CNY: 前端传 amount 为金额单位；TOKENS: 前端传 tokens，需要换成 USD 金额
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		dAmount = dAmount.Div(dQuotaPerUnit)
+func getAmountDiscount(amount decimal.Decimal) float64 {
+	for key, rate := range operation_setting.GetPaymentSetting().AmountDiscount {
+		keyAmount, err := decimal.NewFromString(key)
+		if err == nil && keyAmount.Equal(amount) && rate > 0 {
+			return rate
+		}
 	}
+	return 1
+}
 
+// getPayMoney 返回人民币实付金额：用户填写的是实付金额，分组倍率与折扣只影响实付金额。
+func getPayMoney(amount decimal.Decimal, group string) float64 {
 	topupGroupRatio := common.GetTopupGroupRatio(group)
 	if topupGroupRatio == 0 {
 		topupGroupRatio = 1
 	}
 
-	dTopupGroupRatio := decimal.NewFromFloat(topupGroupRatio)
-	dPrice := decimal.NewFromFloat(operation_setting.Price)
-	// apply optional preset discount by the original request amount (if configured), default 1.0
-	discount := 1.0
-	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[int(amount)]; ok {
-		if ds > 0 {
-			discount = ds
-		}
-	}
-	dDiscount := decimal.NewFromFloat(discount)
-
-	payMoney := dAmount.Mul(dPrice).Mul(dTopupGroupRatio).Mul(dDiscount)
+	payMoney := amount.
+		Mul(decimal.NewFromFloat(topupGroupRatio)).
+		Mul(decimal.NewFromFloat(getAmountDiscount(amount)))
 
 	return payMoney.InexactFloat64()
 }
 
-func getMinTopup() int64 {
-	minTopup := operation_setting.MinTopUp
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dMinTopup := decimal.NewFromInt(int64(minTopup))
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		quota, err := common.WalletQuotaFromDecimalStrict(dMinTopup.Mul(dQuotaPerUnit))
-		if err != nil {
-			return common.MaxWalletQuota
-		}
-		minTopup = quota
-	}
-	return int64(minTopup)
+func getMinTopup() decimal.Decimal {
+	return decimal.NewFromFloat(operation_setting.MinTopUp)
 }
 
-func getTopUpQuota(amount int64) (int, error) {
-	quota := decimal.NewFromInt(amount)
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		quotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		quota = decimal.NewFromInt(quota.Div(quotaPerUnit).IntPart()).Mul(quotaPerUnit)
-	} else {
-		quota = quota.Mul(decimal.NewFromFloat(common.QuotaPerUnit))
+// getCreditAmount 把人民币实付金额按 Price（每 1 美元额度的站内货币价格）折算为到账额度。
+func getCreditAmount(amount decimal.Decimal) decimal.Decimal {
+	price := decimal.NewFromFloat(operation_setting.Price)
+	if price.LessThanOrEqual(decimal.Zero) {
+		return decimal.Zero
 	}
+	return amount.Div(price)
+}
+
+func getTopUpQuota(amount decimal.Decimal) (int, error) {
+	price := decimal.NewFromFloat(operation_setting.Price)
+	if price.LessThanOrEqual(decimal.Zero) {
+		return 0, common.NewMessage("Payment information has not been configured by administrator")
+	}
+	quota := amount.Div(price).Mul(decimal.NewFromFloat(common.QuotaPerUnit))
 	return common.WalletQuotaFromDecimalStrict(quota)
 }
 
-func getMaxTopUpAmount() int64 {
+func getMaxTopUpAmount() decimal.Decimal {
 	if common.QuotaPerUnit <= 0 {
-		return 0
+		return decimal.Zero
 	}
-	quotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-	maxStoredAmount := decimal.NewFromInt(common.MaxWalletQuota).
-		Div(quotaPerUnit).
+	price := decimal.NewFromFloat(operation_setting.Price)
+	if price.LessThanOrEqual(decimal.Zero) {
+		return decimal.Zero
+	}
+	return decimal.NewFromInt(common.MaxWalletQuota).
+		Div(decimal.NewFromFloat(common.QuotaPerUnit)).
+		Mul(price).
 		Floor()
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		return maxStoredAmount.Add(decimal.NewFromInt(1)).
-			Mul(quotaPerUnit).
-			Ceil().
-			Sub(decimal.NewFromInt(1)).
-			IntPart()
-	}
-	return maxStoredAmount.IntPart()
 }
 
 func validateCreditedQuota(quota decimal.Decimal) (int, error) {
@@ -240,14 +232,17 @@ func validateCreditedQuota(quota decimal.Decimal) (int, error) {
 	return value, nil
 }
 
-func validateTopUpQuota(amount int64) (int, error) {
+func validateTopUpQuota(amount decimal.Decimal) (int, error) {
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return 0, common.NewMessage("Invalid top-up amount")
+	}
+	maxAmount := getMaxTopUpAmount()
+	if maxAmount.IsPositive() && amount.GreaterThan(maxAmount) {
+		return 0, common.NewMessage("Top-up amount cannot exceed {{max}}", map[string]any{"max": maxAmount.String()})
+	}
 	quota, err := getTopUpQuota(amount)
 	if err == nil && quota > 0 {
 		return quota, nil
-	}
-	maxAmount := getMaxTopUpAmount()
-	if maxAmount > 0 && amount > maxAmount {
-		return 0, common.NewMessage("Top-up amount cannot exceed {{max}}", map[string]any{"max": maxAmount})
 	}
 	return 0, common.NewMessage("Invalid top-up amount")
 }
@@ -264,6 +259,15 @@ func paymentError(c *gin.Context, err error) {
 	c.JSON(http.StatusOK, body)
 }
 
+// getCreditQuota 把额度数量（Stripe/Waffo 等仍按额度计价的渠道）折算为到账 quota。
+func getCreditQuota(amount int64) decimal.Decimal {
+	quotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		return decimal.NewFromInt(decimal.NewFromInt(amount).Div(quotaPerUnit).IntPart()).Mul(quotaPerUnit)
+	}
+	return decimal.NewFromInt(amount).Mul(quotaPerUnit)
+}
+
 func rejectInvalidCreditedQuota(c *gin.Context, userId int, quota decimal.Decimal) bool {
 	creditedQuota, err := validateCreditedQuota(quota)
 	if err == nil {
@@ -276,7 +280,7 @@ func rejectInvalidCreditedQuota(c *gin.Context, userId int, quota decimal.Decima
 	return false
 }
 
-func rejectInvalidTopUpQuota(c *gin.Context, userId int, amount int64) bool {
+func rejectInvalidTopUpQuota(c *gin.Context, userId int, amount decimal.Decimal) bool {
 	creditedQuota, err := validateTopUpQuota(amount)
 	if err == nil {
 		err = model.ValidateTopUpQuotaCapacity(userId, creditedQuota)
@@ -295,8 +299,10 @@ func RequestEpay(c *gin.Context) {
 		paymentError(c, common.NewMessage("Invalid parameters"))
 		return
 	}
-	if req.Amount < getMinTopup() {
-		paymentError(c, common.NewMessage("Top-up amount cannot be less than {{min}}", map[string]any{"min": getMinTopup()}))
+	minTopup := getMinTopup()
+	req.Amount = req.Amount.Round(2)
+	if req.Amount.LessThan(minTopup) {
+		paymentError(c, common.NewMessage("Top-up amount cannot be less than {{min}}", map[string]any{"min": minTopup.String()}))
 		return
 	}
 	id := c.GetInt("id")
@@ -333,26 +339,20 @@ func RequestEpay(c *gin.Context) {
 	uri, params, err := client.Purchase(&epay.PurchaseArgs{
 		Type:           req.PaymentMethod,
 		ServiceTradeNo: tradeNo,
-		Name:           fmt.Sprintf("TUC%d", req.Amount),
+		Name:           fmt.Sprintf("TUC%s", req.Amount.String()),
 		Money:          strconv.FormatFloat(payMoney, 'f', 2, 64),
 		Device:         epay.PC,
 		NotifyUrl:      notifyUrl,
 		ReturnUrl:      returnUrl,
 	})
 	if err != nil {
-		logger.LogError(c.Request.Context(), common.LogText("Epay failed to start payment user_id=%d trade_no=%s payment_method=%s amount=%d error=%q", id, tradeNo, req.PaymentMethod, req.Amount, err.Error()))
+		logger.LogError(c.Request.Context(), common.LogText("Epay failed to start payment user_id=%d trade_no=%s payment_method=%s amount=%s error=%q", id, tradeNo, req.PaymentMethod, req.Amount.String(), err.Error()))
 		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}
-	amount := req.Amount
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dAmount := decimal.NewFromInt(int64(amount))
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		amount = dAmount.Div(dQuotaPerUnit).IntPart()
-	}
 	topUp := &model.TopUp{
 		UserId:          id,
-		Amount:          amount,
+		Amount:          getCreditAmount(req.Amount).InexactFloat64(),
 		Money:           payMoney,
 		TradeNo:         tradeNo,
 		PaymentMethod:   req.PaymentMethod,
@@ -362,11 +362,11 @@ func RequestEpay(c *gin.Context) {
 	}
 	err = topUp.Insert()
 	if err != nil {
-		logger.LogError(c.Request.Context(), common.LogText("Epay failed to create top-up order user_id=%d trade_no=%s payment_method=%s amount=%d error=%q", id, tradeNo, req.PaymentMethod, req.Amount, err.Error()))
+		logger.LogError(c.Request.Context(), common.LogText("Epay failed to create top-up order user_id=%d trade_no=%s payment_method=%s amount=%s error=%q", id, tradeNo, req.PaymentMethod, req.Amount.String(), err.Error()))
 		paymentError(c, common.NewMessage("Failed to create order"))
 		return
 	}
-	logger.LogInfo(c.Request.Context(), common.LogText("Epay top-up order created user_id=%d trade_no=%s payment_method=%s amount=%d money=%.2f uri=%q params=%q", id, tradeNo, req.PaymentMethod, req.Amount, payMoney, uri, common.GetJsonString(params)))
+	logger.LogInfo(c.Request.Context(), common.LogText("Epay top-up order created user_id=%d trade_no=%s payment_method=%s amount=%s money=%.2f uri=%q params=%q", id, tradeNo, req.PaymentMethod, req.Amount.String(), payMoney, uri, common.GetJsonString(params)))
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": params, "url": uri})
 }
 
@@ -512,8 +512,10 @@ func RequestAmount(c *gin.Context) {
 		return
 	}
 
-	if req.Amount < getMinTopup() {
-		paymentError(c, common.NewMessage("Top-up amount cannot be less than {{min}}", map[string]any{"min": getMinTopup()}))
+	minTopup := getMinTopup()
+	req.Amount = req.Amount.Round(2)
+	if req.Amount.LessThan(minTopup) {
+		paymentError(c, common.NewMessage("Top-up amount cannot be less than {{min}}", map[string]any{"min": minTopup.String()}))
 		return
 	}
 	id := c.GetInt("id")

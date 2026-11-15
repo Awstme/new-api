@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,7 +35,7 @@ func RequestWaffoPancakeAmount(c *gin.Context) {
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	if rejectInvalidCreditedQuota(c, id, getCreditQuota(req.Amount)) {
 		return
 	}
 
@@ -65,7 +66,7 @@ func getWaffoPancakePayMoney(amount int64, group string) float64 {
 	}
 
 	discount := 1.0
-	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[int(amount)]; ok && ds > 0 {
+	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[strconv.FormatInt(amount, 10)]; ok && ds > 0 {
 		discount = ds
 	}
 
@@ -355,7 +356,7 @@ func RequestWaffoPancakePay(c *gin.Context) {
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	if rejectInvalidCreditedQuota(c, id, getCreditQuota(req.Amount)) {
 		return
 	}
 
@@ -380,7 +381,7 @@ func RequestWaffoPancakePay(c *gin.Context) {
 	tradeNo := fmt.Sprintf("WAFFO_PANCAKE-%d-%d-%s", id, time.Now().UnixMilli(), randstr.String(6))
 	topUp := &model.TopUp{
 		UserId:          id,
-		Amount:          normalizeWaffoPancakeTopUpAmount(req.Amount),
+		Amount:          float64(normalizeWaffoPancakeTopUpAmount(req.Amount)),
 		Money:           payMoney,
 		TradeNo:         tradeNo,
 		PaymentMethod:   model.PaymentMethodWaffoPancake,

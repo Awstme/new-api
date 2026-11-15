@@ -96,7 +96,7 @@ func getWaffoPayMoney(amount float64, group string) float64 {
 		topupGroupRatio = 1
 	}
 	discount := 1.0
-	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[int(originalAmount)]; ok {
+	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[strconv.FormatInt(int64(originalAmount), 10)]; ok {
 		if ds > 0 {
 			discount = ds
 		}
@@ -124,7 +124,7 @@ func RequestWaffoAmount(c *gin.Context) {
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	if rejectInvalidCreditedQuota(c, id, getCreditQuota(req.Amount)) {
 		return
 	}
 
@@ -161,7 +161,7 @@ func RequestWaffoPay(c *gin.Context) {
 		return
 	}
 	id := c.GetInt("id")
-	if rejectInvalidTopUpQuota(c, id, req.Amount) {
+	if rejectInvalidCreditedQuota(c, id, getCreditQuota(req.Amount)) {
 		return
 	}
 
@@ -223,7 +223,7 @@ func RequestWaffoPay(c *gin.Context) {
 	// 创建本地订单
 	topUp := &model.TopUp{
 		UserId:          id,
-		Amount:          amount,
+		Amount:          float64(amount),
 		Money:           payMoney,
 		TradeNo:         merchantOrderId,
 		PaymentMethod:   model.PaymentMethodWaffo,
