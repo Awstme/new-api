@@ -72,6 +72,19 @@ function UsageLogsContent() {
     setAffinityDialogOpen,
   } = useUsageLogsContext()
   const { canManageScope, viewScope, setViewScope } = useLogsViewScope()
+  const search = route.useSearch()
+  const logView = search.view ?? 'sessions'
+  const handleViewChange = useCallback(
+    (view: string) => {
+      if (view !== 'requests' && view !== 'rows' && view !== 'sessions') return
+      void navigate({
+        to: '/usage-logs/$section',
+        params: { section: 'common' },
+        search: { ...search, view, page: 1 },
+      })
+    },
+    [navigate, search]
+  )
   const tabNavGroups = useMemo<NavGroup[]>(
     () => [
       {
@@ -129,6 +142,22 @@ function UsageLogsContent() {
           {t(pageMeta.titleKey)}
         </SectionPageLayout.Title>
         <SectionPageLayout.Actions>
+          {activeCategory === 'common' && (
+            <Tabs value={logView} onValueChange={handleViewChange}>
+              <TabsList>
+                <TabsTrigger
+                  value='sessions'
+                  title={t(
+                    'Same user, token and model within a 5-minute window'
+                  )}
+                >
+                  {t('Sessions')}
+                </TabsTrigger>
+                <TabsTrigger value='requests'>{t('By request')}</TabsTrigger>
+                <TabsTrigger value='rows'>{t('By log row')}</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
           {canManageScope && (
             <Tabs value={viewScope} onValueChange={handleViewScopeChange}>
               <TabsList>

@@ -96,6 +96,7 @@ type NewAPIError struct {
 	errorCode      ErrorCode
 	StatusCode     int
 	Metadata       json.RawMessage
+	upstreamBody   string
 }
 
 // Unwrap enables errors.Is / errors.As to work with NewAPIError by exposing the underlying error.
@@ -118,6 +119,24 @@ func (e *NewAPIError) GetErrorType() ErrorType {
 		return ""
 	}
 	return e.errorType
+}
+
+// SetUpstreamBody keeps a sanitized, size-limited upstream response body for
+// administrator diagnostics. It must never be sent to API clients.
+func (e *NewAPIError) SetUpstreamBody(body string) {
+	if e == nil {
+		return
+	}
+	e.upstreamBody = body
+}
+
+// GetUpstreamBody returns the sanitized upstream response body captured for
+// administrator diagnostics, if any.
+func (e *NewAPIError) GetUpstreamBody() string {
+	if e == nil {
+		return ""
+	}
+	return e.upstreamBody
 }
 
 func (e *NewAPIError) Error() string {

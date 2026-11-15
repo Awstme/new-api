@@ -312,58 +312,41 @@ export function processChartData(
     0
   )
 
-  // Pie chart (model call count proportion)
-  const pieValues = [...modelTotalsMap.entries()]
+  // Pie chart: top models by call count + Other.
+  const MAX_PIE_MODELS = 8
+  const rankedPieModels = [...modelTotalsMap.entries()]
     .map(([model, stats]) => ({
       type: model,
       value: Number(stats.count) || 0,
     }))
     .sort((a, b) => b.value - a.value)
+  const pieTopModels = rankedPieModels.slice(0, MAX_PIE_MODELS)
+  const pieOtherCount = rankedPieModels
+    .slice(MAX_PIE_MODELS)
+    .reduce((sum, item) => sum + item.value, 0)
+  const pieValues =
+    pieOtherCount > 0
+      ? [...pieTopModels, { type: otherLabel, value: pieOtherCount }]
+      : pieTopModels
 
-  // Stacked bar: model quota distribution (quota -> USD)
-  const lineValues: Array<{
+  // Stacked bar and cost area: top models by quota + Other.
+  const MAX_STACKED_MODELS = 8
+  const rankedStackedModels = [...modelTotalsMap.entries()]
+    .map(([model, stats]) => ({
+      model,
+      quota: Number(stats.quota) || 0,
+    }))
+    .sort((a, b) => b.quota - a.quota)
+  const topStackedModels = new Set(
+    rankedStackedModels.slice(0, MAX_STACKED_MODELS).map((item) => item.model)
+  )
+  const stackedValues: Array<{
     Time: string
     Model: string
     rawQuota: number
     Usage: number
     TimeSum: number
   }> = []
-
-  chartTimes.forEach((time) => {
-    let timeData = sortedModels.map((model) => {
-      const stats = timeModelMap.get(time)?.get(model)
-      const rawQuota = Number(stats?.quota) || 0
-      const usd = rawQuota ? rawQuota / quotaPerUnit : 0
-      // Match legacy frontend getQuotaWithUnit(..., 4)
-      const usage = usd ? Number(usd.toFixed(4)) : 0
-      return {
-        Time: time,
-        Model: model,
-        rawQuota,
-        Usage: usage,
-        TimeSum: 0,
-      }
-    })
-
-    const timeSum = timeData.reduce((sum, item) => sum + item.rawQuota, 0)
-    timeData.sort((a, b) => b.rawQuota - a.rawQuota)
-    timeData = timeData.map((item) => ({ ...item, TimeSum: timeSum }))
-    lineValues.push(...timeData)
-  })
-
-  // Area chart: top models by quota + "Other" bucket (too many series = unreadable)
-  const MAX_AREA_MODELS = 15
-  const rankedQuotaModels = [...modelTotalsMap.entries()]
-    .map(([model, stats]) => ({
-      Model: model,
-      Quota: Number(stats.quota) || 0,
-    }))
-    .sort((a, b) => b.Quota - a.Quota)
-  const topAreaModels = new Set(
-    rankedQuotaModels.slice(0, MAX_AREA_MODELS).map((m) => m.Model)
-  )
-
-  const areaValues: typeof lineValues = []
   chartTimes.forEach((time) => {
     const buckets = new Map<string, { rawQuota: number; usage: number }>()
     const modelMap = timeModelMap.get(time)
@@ -374,26 +357,26 @@ export function processChartData(
       const usd = rawQuota ? rawQuota / quotaPerUnit : 0
       const usage = usd ? Number(usd.toFixed(4)) : 0
       timeSum += rawQuota
-      const key = topAreaModels.has(model) ? model : otherLabel
+      const key = topStackedModels.has(model) ? model : otherLabel
       const prev = buckets.get(key) || { rawQuota: 0, usage: 0 }
       buckets.set(key, {
         rawQuota: prev.rawQuota + rawQuota,
         usage: Number((prev.usage + usage).toFixed(4)),
       })
     })
-    for (const [model, vals] of buckets) {
-      areaValues.push({
+    for (const [model, values] of buckets) {
+      stackedValues.push({
         Time: time,
         Model: model,
-        rawQuota: vals.rawQuota,
-        Usage: vals.usage,
+        rawQuota: values.rawQuota,
+        Usage: values.usage,
         TimeSum: timeSum,
       })
     }
   })
 
   // Line chart: model call trend (top models + "Other" bucket)
-  const MAX_TREND_MODELS = 20
+  const MAX_TREND_MODELS = 8
   const rankedTrendModels = [...modelTotalsMap.entries()]
     .map(([model, stats]) => ({
       Model: model,
@@ -436,7 +419,7 @@ export function processChartData(
   })
 
   // Rank bar: model call count ranking (top 20 + "Other" bucket)
-  const MAX_RANK_MODELS = 20
+  const MAX_RANK_MODELS = 12
   const allRankValues = [...modelTotalsMap.entries()]
     .map(([model, stats]) => ({
       Model: model,
@@ -495,7 +478,7 @@ export function processChartData(
     },
     spec_line: {
       type: 'bar',
-      data: [{ id: 'barData', values: lineValues }],
+      data: [{ id: 'barData', values: stackedValues }],
       xField: 'Time',
       yField: 'Usage',
       seriesField: 'Model',
@@ -533,7 +516,7 @@ export function processChartData(
     },
     spec_area: {
       type: 'area',
-      data: [{ id: 'areaData', values: areaValues }],
+      data: [{ id: 'areaData', values: stackedValues }],
       xField: 'Time',
       yField: 'Usage',
       seriesField: 'Model',

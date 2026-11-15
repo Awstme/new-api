@@ -27,10 +27,13 @@ import {
 
 const logTypeValues = ['0', '1', '2', '3', '4', '5', '6', '7'] as const
 const logTypeSearchSchema = z
-  .preprocess((value) => {
-    if (value == null || value === '') return undefined
-    return Array.isArray(value) ? value : [value]
-  }, z.array(z.enum(logTypeValues)).optional())
+  .preprocess(
+    (value) => {
+      if (value == null || value === '') return undefined
+      return Array.isArray(value) ? value : [value]
+    },
+    z.array(z.enum(logTypeValues)).optional()
+  )
   .catch([])
 
 const usageLogsSearchSchema = z.object({
@@ -38,6 +41,8 @@ const usageLogsSearchSchema = z.object({
   pageSize: z.number().optional().catch(undefined),
   type: logTypeSearchSchema.optional(),
   filter: z.string().optional().catch(''),
+  q: z.string().optional().catch(''),
+  view: z.enum(['requests', 'rows', 'sessions']).optional().catch('sessions'),
   model: z.string().optional().catch(''),
   token: z.string().optional().catch(''),
   channel: z.string().optional().catch(''),

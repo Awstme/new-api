@@ -49,6 +49,7 @@ export interface CommonFilters {
  * Common logs specific filters
  */
 export interface CommonLogFilters extends CommonFilters {
+  q?: string
   model?: string
   token?: string
   group?: string
@@ -114,6 +115,16 @@ export interface ToolSurchargeItem {
   price: number
 }
 
+export interface SessionLogRequest {
+  request_id: string
+  created_at: number
+  type: number
+  status_code?: number
+  quota: number
+  attempts: number
+  error?: string
+}
+
 export interface LogOtherData {
   admin_info?: {
     request_policy?: PolicyEvent[]
@@ -123,6 +134,15 @@ export interface LogOtherData {
     local_count_tokens?: boolean
     usage_billing_path?: UsageBillingPath | string
     channel_affinity?: ChannelAffinityInfo
+    // Upstream error body captured for administrator diagnostics (type 5,
+    // admin only). Sanitized and size-limited by the gateway.
+    upstream_body?: string
+    // Present on a request-view row: how many log rows and attempts the
+    // request produced (admin only).
+    request_merged?: boolean
+    request_log_count?: number
+    request_error_count?: number
+    request_attempts?: number
     // Top-up audit fields (type=1, admin only)
     payment_method?: string
     callback_payment_method?: string
@@ -179,6 +199,17 @@ export interface LogOtherData {
   user_agent?: string
   request_path?: string
   request_conversion?: string[]
+  status_code?: number
+  error_code?: string
+  error_type?: string
+  request_log_count?: number
+  request_error_count?: number
+  request_attempts?: number
+  session_requests?: SessionLogRequest[]
+  session_request_count?: number
+  session_error_count?: number
+  session_log_count?: number
+  session_window_seconds?: number
   ws?: boolean
   audio?: boolean
   audio_input?: number
@@ -289,6 +320,30 @@ export interface LogStatistics {
   quota: number
   rpm: number
   tpm: number
+  requests?: number
+  success_requests?: number
+  failed_requests?: number
+  retried_requests?: number
+  error_rows?: number
+  error_rate?: number
+  prompt_tokens?: number
+  completion_tokens?: number
+  tokens?: number
+  p50?: number
+  p95?: number
+  p99?: number
+  avg_use_time?: number
+  series?: LogStatisticsBucket[]
+}
+
+export interface LogStatisticsBucket {
+  t: number
+  requests: number
+  success: number
+  failed: number
+  retried: number
+  quota: number
+  tokens: number
 }
 
 // ============================================================================
@@ -441,6 +496,8 @@ export interface GetLogsParams {
   group?: string
   request_id?: string
   upstream_request_id?: string
+  q?: string
+  group_by?: 'request' | 'session'
 }
 
 export interface GetLogsResponse {
@@ -465,6 +522,7 @@ export interface GetLogStatsParams {
   group?: string
   request_id?: string
   upstream_request_id?: string
+  q?: string
 }
 
 export interface GetLogStatsResponse {
@@ -513,6 +571,7 @@ export interface FetchLogsConfig {
   pageSize: number
   searchParams: Record<string, unknown>
   columnFilters: Array<{ id: string; value: unknown }>
+  groupBy?: 'request' | 'session'
 }
 
 // ============================================================================

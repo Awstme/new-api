@@ -158,3 +158,21 @@ func withDebugEnabled(t *testing.T, enabled bool) {
 		common.DebugEnabled = oldDebug
 	})
 }
+
+func TestRelayErrorHandlerCapturesMaskedUpstreamBody(t *testing.T) {
+	body := `{"error":{"message":"The API key is expired","type":"invalid_request_error"},"api_key":"sk-secret-value","padding":"` + strings.Repeat("x", common.LocalLogContentLimit+256) + `"}`
+	resp := &http.Response{
+		StatusCode: http.StatusForbidden,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	newAPIError := RelayErrorHandler(context.Background(), resp, false)
+
+	require.NotNil(t, newAPIError)
+	upstreamBody := newAPIError.GetUpstreamBody()
+	require.Contains(t, upstreamBody, "The API key is expired")
+	require.Contains(t, upstreamBody, "***")
+	require.NotContains(t, upstreamBody, "sk-secret-value")
+	require.Contains(t, upstreamBody, "[truncated]")
+	require.LessOrEqual(t, len(upstreamBody), upstreamBodyLogLimit+len("... [truncated]"))
+}

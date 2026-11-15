@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
@@ -28,6 +29,7 @@ func logFilterFromQuery(c *gin.Context, admin bool) model.LogFilter {
 		Group:             c.Query("group"),
 		RequestId:         c.Query("request_id"),
 		UpstreamRequestId: c.Query("upstream_request_id"),
+		Query:             c.Query("q"),
 	}
 	if admin {
 		filter.Username = c.Query("username")
@@ -56,7 +58,18 @@ func limitLogTimeRange(startTimestamp int64, endTimestamp int64) (int64, error) 
 
 func GetAllLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
-	logs, total, err := model.GetAllLogs(logFilterFromQuery(c, true), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	filter := logFilterFromQuery(c, true)
+	var logs []*model.Log
+	var total int64
+	var err error
+	switch c.Query("group_by") {
+	case "request":
+		logs, total, err = model.GetAllLogRequests(filter, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	case "session":
+		logs, total, err = model.GetAllLogSessions(filter, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	default:
+		logs, total, err = model.GetAllLogs(filter, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -83,7 +96,17 @@ func GetUserLogs(c *gin.Context) {
 		}
 		filter.StartTimestamp = startTimestamp
 	}
-	logs, total, err := model.GetUserLogs(c.GetInt("id"), filter, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	var logs []*model.Log
+	var total int64
+	var err error
+	switch c.Query("group_by") {
+	case "request":
+		logs, total, err = model.GetUserLogRequests(c.GetInt("id"), filter, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	case "session":
+		logs, total, err = model.GetUserLogSessions(c.GetInt("id"), filter, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	default:
+		logs, total, err = model.GetUserLogs(c.GetInt("id"), filter, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -179,6 +202,42 @@ func SearchUserLogs(c *gin.Context) {
 	common.ApiErrorT(c, "This API is deprecated")
 }
 
+// ExpandLogs returns the raw log rows behind a merged request or session row.
+// Self views are restricted to the caller's own rows.
+func ExpandLogs(c *gin.Context) {
+	rawRequestIds := c.Query("request_ids")
+	if rawRequestIds == "" {
+		rawRequestIds = c.Query("request_id")
+	}
+	requestIds := strings.Split(rawRequestIds, ",")
+	userId := 0
+	if c.GetInt("role") < common.RoleAdminUser {
+		userId = c.GetInt("id")
+	}
+	rows, truncated, err := model.GetLogsByRequestIds(requestIds, userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	role := c.GetInt("role")
+	switch {
+	case role >= common.RoleRootUser:
+		model.FormatRootLogs(rows)
+	case role >= common.RoleAdminUser:
+		model.FormatAdminLogs(rows)
+	default:
+		model.FormatUserLogs(rows)
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"items":     rows,
+			"truncated": truncated,
+		},
+	})
+}
+
 func GetLogByKey(c *gin.Context) {
 	tokenId := c.GetInt("token_id")
 	if tokenId == 0 {
@@ -201,63 +260,36 @@ func GetLogByKey(c *gin.Context) {
 }
 
 func GetLogsStat(c *gin.Context) {
-	logType, _ := strconv.Atoi(c.Query("type"))
-	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
-	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
-	tokenName := c.Query("token_name")
-	username := c.Query("username")
-	modelName := c.Query("model_name")
-	channel, _ := strconv.Atoi(c.Query("channel"))
-	group := c.Query("group")
-	stat, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	summary, err := model.SummarizeLogs(logFilterFromQuery(c, true), 0)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	//tokenNum := model.SumUsedToken(logType, startTimestamp, endTimestamp, modelName, username, "")
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data": gin.H{
-			"quota": stat.Quota,
-			"rpm":   stat.Rpm,
-			"tpm":   stat.Tpm,
-		},
+		"data":    summary,
 	})
-	return
 }
 
 func GetLogsSelfStat(c *gin.Context) {
-	username := c.GetString("username")
-	logType, _ := strconv.Atoi(c.Query("type"))
-	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
-	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	filter := logFilterFromQuery(c, false)
 	if c.GetInt("role") < common.RoleAdminUser {
-		var err error
-		if startTimestamp, err = limitLogTimeRange(startTimestamp, endTimestamp); err != nil {
+		startTimestamp, err := limitLogTimeRange(filter.StartTimestamp, filter.EndTimestamp)
+		if err != nil {
 			common.ApiError(c, err)
 			return
 		}
+		filter.StartTimestamp = startTimestamp
 	}
-	tokenName := c.Query("token_name")
-	modelName := c.Query("model_name")
-	channel, _ := strconv.Atoi(c.Query("channel"))
-	group := c.Query("group")
-	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	summary, err := model.SummarizeLogs(filter, c.GetInt("id"))
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	//tokenNum := model.SumUsedToken(logType, startTimestamp, endTimestamp, modelName, username, tokenName)
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data": gin.H{
-			"quota": quotaNum.Quota,
-			"rpm":   quotaNum.Rpm,
-			"tpm":   quotaNum.Tpm,
-			//"token": tokenNum,
-		},
+		"data":    summary,
 	})
-	return
 }

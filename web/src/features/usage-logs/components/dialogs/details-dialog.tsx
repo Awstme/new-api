@@ -63,7 +63,12 @@ import { pluginUsageSchema } from '@/features/pricing/lib/plugin-pricing'
 import { PolicyDecisionRecord } from '@/features/system-settings/request-policies/decision-record'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
+import {
+  formatLogQuota,
+  formatTimestampToDate,
+  formatTokens,
+  formatUseTime,
+} from '@/lib/format'
 import { translateServerText } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
 
@@ -538,6 +543,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const other = parseLogOther(props.log.other)
   const typeConfig = getLogTypeConfig(props.log.type)
+  const sessionRequests = Array.isArray(other?.session_requests)
+    ? other.session_requests
+    : []
+  const hasSession = sessionRequests.length > 1
 
   const isViolation = isViolationFeeLog(other)
   const isRefund = props.log.type === 6
@@ -728,6 +737,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           )}
 
+          {hasSession && (
+            <DetailRow
+              label={t('Session')}
+              value={`${other?.session_request_count ?? sessionRequests.length} ${t('requests')} · ${other?.session_log_count ?? 0} ${t('log rows')} · ${other?.session_error_count ?? 0} ${t('errors')}`}
+            />
+          )}
+
           {props.isAdmin && props.log.channel > 0 && (
             <DetailRow
               label={t('Channel')}
@@ -748,6 +764,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
 
           {channelChain && props.isAdmin && (
             <DetailRow label={t('Retry Chain')} value={channelChain} mono />
+          )}
+
+          {props.isAdmin && adminInfo?.request_merged && (
+            <DetailRow
+              label={hasSession ? t('Latest Request') : t('Request Logs')}
+              value={`${adminInfo.request_log_count ?? 0} ${t('log rows')} · ${adminInfo.request_attempts ?? 0} ${t('attempts')} · ${adminInfo.request_error_count ?? 0} ${t('errors')}`}
+            />
           )}
 
           {props.log.token_name && (
@@ -781,7 +804,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
 
           {showTiming && props.log.use_time > 0 && (
             <DetailRow
-              label={t('Response Time')}
+              label={hasSession ? t('Total Time') : t('Response Time')}
               value={
                 <span
                   className={cn(
@@ -815,6 +838,66 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           )}
         </div>
+
+        {sessionRequests.length > 1 && (
+          <DetailSection
+            icon={<Route className='size-3.5' aria-hidden='true' />}
+            label={`${t('Session Requests')} (${other?.session_request_count ?? sessionRequests.length})`}
+          >
+            <div className='space-y-1'>
+              {sessionRequests.map((request) => (
+                <div
+                  key={`${request.request_id}-${request.created_at}`}
+                  className='border-border/60 flex flex-wrap items-center gap-x-2 gap-y-1 rounded border px-2 py-1 text-xs'
+                >
+                  <span className='text-muted-foreground font-mono text-[10px]'>
+                    {formatTimestampToDate(request.created_at)}
+                  </span>
+                  <StatusBadge
+                    label={
+                      request.type === 5 ? t('Error') : t('Consume')
+                    }
+                    variant={request.type === 5 ? 'red' : 'green'}
+                    size='sm'
+                    copyable={false}
+                  />
+                  {request.status_code ? (
+                    <span className='font-mono text-[10px] text-red-600 dark:text-red-400'>
+                      HTTP {request.status_code}
+                    </span>
+                  ) : null}
+                  <span className='font-mono text-[10px]'>
+                    {formatLogQuota(request.quota)}
+                  </span>
+                  {request.attempts > 1 ? (
+                    <span className='text-muted-foreground font-mono text-[10px]'>
+                      ×{request.attempts}
+                    </span>
+                  ) : null}
+                  <span
+                    className='text-muted-foreground min-w-0 truncate font-mono text-[10px]'
+                    title={request.request_id}
+                  >
+                    {request.request_id}
+                  </span>
+                  {request.error ? (
+                    <span
+                      className='w-full truncate text-[10px] text-red-600 dark:text-red-400'
+                      title={request.error}
+                    >
+                      {request.error.replace(/^status_code=\d+,\s*/, '')}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            {sessionRequests.length < (other?.session_request_count ?? 0) && (
+              <p className='text-muted-foreground text-xs'>
+                {t('Only the first 100 requests are listed.')}
+              </p>
+            )}
+          </DetailSection>
+        )}
 
         {/* Request conversion (admin only, not for refund) */}
         {showConversion && (
@@ -907,6 +990,38 @@ export function DetailsDialog(props: DetailsDialogProps) {
             variant='danger'
           >
             <p className='text-xs wrap-break-word'>{adminInfo.reject_reason}</p>
+          </DetailSection>
+        )}
+
+        {props.isAdmin && adminInfo?.upstream_body && (
+          <DetailSection
+            icon={<Cloud className='size-3.5' aria-hidden='true' />}
+            label={t('Upstream Response Body')}
+          >
+            <div className='flex items-start justify-between gap-2'>
+              <p className='text-muted-foreground text-xs'>
+                {t(
+                  'Sanitized and truncated upstream error body, visible to administrators only.'
+                )}
+              </p>
+              <Button
+                variant='ghost'
+                size='sm'
+                className='h-5 w-5 shrink-0 p-0'
+                onClick={() => copyToClipboard(adminInfo.upstream_body || '')}
+                title={t('Copy to clipboard')}
+                aria-label={t('Copy to clipboard')}
+              >
+                {copiedText === adminInfo.upstream_body ? (
+                  <Check className='size-3 text-green-600' />
+                ) : (
+                  <Copy className='size-3' />
+                )}
+              </Button>
+            </div>
+            <pre className='bg-background/60 max-h-48 overflow-auto rounded border p-2 font-mono text-[11px] leading-relaxed wrap-break-word whitespace-pre-wrap'>
+              {adminInfo.upstream_body}
+            </pre>
           </DetailSection>
         )}
 

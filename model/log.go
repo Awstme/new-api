@@ -112,11 +112,17 @@ func assignDisplayLogIds(logs []*Log, startIdx int) {
 }
 
 func formatUserLogs(logs []*Log, startIdx int) {
+	FormatUserLogs(logs)
+	assignDisplayLogIds(logs, startIdx)
+}
+
+// FormatUserLogs strips administrator-only metadata while keeping the log
+// owner's billing fields. It does not assign display ids.
+func FormatUserLogs(logs []*Log) {
 	for i := range logs {
 		logs[i].ChannelName = ""
 		logs[i].Other = formatLogOtherJSON(logs[i].Other, logOtherVisibilityUser)
 	}
-	assignDisplayLogIds(logs, startIdx)
 }
 
 // FormatAdminLogs removes root-only diagnostics while retaining operational
@@ -162,6 +168,27 @@ func RecordLog(userId int, logType int, content *common.Message) {
 	err := createLog(log)
 	if err != nil {
 		common.SysLog(common.LogText("failed to record log: %s", err.Error()))
+	}
+}
+
+// RecordQuotaGrantLog records a granted quota with its raw amount so free-quota
+// statistics do not have to infer the amount from localized log text.
+func RecordQuotaGrantLog(userId int, grantType string, quota int, content *common.Message) {
+	username, _ := GetUsernameById(userId, false)
+	other := NewLogOther()
+	other.SetPublic("grant_type", grantType)
+	other.SetPublic("grant_quota", quota)
+	log := &Log{
+		UserId:    userId,
+		Username:  username,
+		CreatedAt: common.GetTimestamp(),
+		Type:      LogTypeSystem,
+		Content:   other.setContent([]*common.Message{content}),
+		Other:     other.JSONString(),
+	}
+	err := createLog(log)
+	if err != nil {
+		common.SysLog(common.LogText("failed to record quota grant log: %s", err.Error()))
 	}
 }
 
@@ -474,7 +501,8 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 }
 
 // LogFilter is the usage-log search shared by the log list and the log export.
-// Username and Channel are administrator filters.
+// Username and Channel are administrator filters. Query is a whitespace-
+// separated fuzzy search across the text columns of a log.
 type LogFilter struct {
 	Type              int
 	StartTimestamp    int64
@@ -486,6 +514,7 @@ type LogFilter struct {
 	Group             string
 	RequestId         string
 	UpstreamRequestId string
+	Query             string
 }
 
 func (f LogFilter) apply(tx *gorm.DB) (*gorm.DB, error) {
@@ -493,20 +522,20 @@ func (f LogFilter) apply(tx *gorm.DB) (*gorm.DB, error) {
 	if f.Type != LogTypeUnknown {
 		tx = tx.Where("logs.type = ?", f.Type)
 	}
-	if tx, err = applyExplicitLogTextFilter(tx, "logs.model_name", f.ModelName); err != nil {
+	if tx, err = applyLogTextFilter(tx, "logs.model_name", f.ModelName); err != nil {
 		return nil, err
 	}
-	if tx, err = applyExplicitLogTextFilter(tx, "logs.username", f.Username); err != nil {
+	if tx, err = applyLogTextFilter(tx, "logs.username", f.Username); err != nil {
 		return nil, err
 	}
-	if f.TokenName != "" {
-		tx = tx.Where("logs.token_name = ?", f.TokenName)
+	if tx, err = applyLogTextFilter(tx, "logs.token_name", f.TokenName); err != nil {
+		return nil, err
 	}
-	if f.RequestId != "" {
-		tx = tx.Where("logs.request_id = ?", f.RequestId)
+	if tx, err = applyLogTextFilter(tx, "logs.request_id", f.RequestId); err != nil {
+		return nil, err
 	}
-	if f.UpstreamRequestId != "" {
-		tx = tx.Where("logs.upstream_request_id = ?", f.UpstreamRequestId)
+	if tx, err = applyLogTextFilter(tx, "logs.upstream_request_id", f.UpstreamRequestId); err != nil {
+		return nil, err
 	}
 	if f.StartTimestamp != 0 {
 		tx = tx.Where("logs.created_at >= ?", f.StartTimestamp)
@@ -520,7 +549,61 @@ func (f LogFilter) apply(tx *gorm.DB) (*gorm.DB, error) {
 	if f.Group != "" {
 		tx = tx.Where("logs."+logGroupCol+" = ?", f.Group)
 	}
+	tx = applyLogQueryFilter(tx, f.Query)
 	return tx, nil
+}
+
+// applyLogQueryFilter narrows logs to rows containing every whitespace-
+// separated term in at least one searchable text column. Matching is a
+// case-insensitive substring match; LIKE wildcards in the input are literal.
+func applyLogQueryFilter(tx *gorm.DB, query string) *gorm.DB {
+	for term := range strings.FieldsSeq(strings.TrimSpace(query)) {
+		term = strings.ToLower(term)
+		if term == "" {
+			continue
+		}
+		pattern := logQueryPattern(term)
+		if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
+			condition := "(lower(logs.username) LIKE ? OR lower(logs.token_name) LIKE ? OR lower(logs.model_name) LIKE ? OR lower(logs.request_id) LIKE ? OR lower(logs.upstream_request_id) LIKE ? OR lower(logs.content) LIKE ? OR lower(logs.ip) LIKE ? OR lower(logs." + logGroupCol + ") LIKE ?)"
+			tx = tx.Where(condition, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern)
+			continue
+		}
+		condition := "(LOWER(logs.username) LIKE ? ESCAPE '!' OR LOWER(logs.token_name) LIKE ? ESCAPE '!' OR LOWER(logs.model_name) LIKE ? ESCAPE '!' OR LOWER(logs.request_id) LIKE ? ESCAPE '!' OR LOWER(logs.upstream_request_id) LIKE ? ESCAPE '!' OR LOWER(logs.content) LIKE ? ESCAPE '!' OR LOWER(logs.ip) LIKE ? ESCAPE '!' OR LOWER(logs." + logGroupCol + ") LIKE ? ESCAPE '!')"
+		tx = tx.Where(condition, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern)
+	}
+	return tx
+}
+
+func logQueryPattern(term string) string {
+	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
+		term = strings.ReplaceAll(term, `\`, `\\`)
+		term = strings.ReplaceAll(term, `%`, `\%`)
+		term = strings.ReplaceAll(term, `_`, `\_`)
+		return "%" + term + "%"
+	}
+	term = strings.ReplaceAll(term, "!", "!!")
+	term = strings.ReplaceAll(term, "%", "!%")
+	term = strings.ReplaceAll(term, "_", "!_")
+	return "%" + term + "%"
+}
+
+// applyLogTextFilter matches the column as a case-insensitive literal
+// substring so the small search boxes behave like the global log search.
+// A value containing % keeps the historical wildcard semantics used by API
+// callers and exports.
+func applyLogTextFilter(tx *gorm.DB, column string, value string) (*gorm.DB, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return tx, nil
+	}
+	if strings.Contains(value, "%") {
+		return applyExplicitLogTextFilter(tx, column, value)
+	}
+	pattern := logQueryPattern(strings.ToLower(value))
+	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
+		return tx.Where("lower("+column+") LIKE ?", pattern), nil
+	}
+	return tx.Where("LOWER("+column+") LIKE ? ESCAPE '!'", pattern), nil
 }
 
 func GetAllLogs(filter LogFilter, startIdx int, num int) (logs []*Log, total int64, err error) {
@@ -544,47 +627,54 @@ func GetAllLogs(filter LogFilter, startIdx int, num int) (logs []*Log, total int
 		assignDisplayLogIds(logs, startIdx)
 	}
 
+	if err = attachLogChannelNames(logs); err != nil {
+		return logs, total, err
+	}
+
+	return logs, total, err
+}
+
+// attachLogChannelNames fills ChannelName for the channel IDs referenced by
+// logs, using the in-memory channel cache when it is enabled.
+func attachLogChannelNames(logs []*Log) error {
 	channelIds := types.NewSet[int]()
 	for _, log := range logs {
 		if log.ChannelId != 0 {
 			channelIds.Add(log.ChannelId)
 		}
 	}
-
-	if channelIds.Len() > 0 {
-		var channels []struct {
-			Id   int    `gorm:"column:id"`
-			Name string `gorm:"column:name"`
-		}
-		if common.MemoryCacheEnabled {
-			// Cache get channel
-			for _, channelId := range channelIds.Items() {
-				if cacheChannel, err := CacheGetChannel(channelId); err == nil {
-					channels = append(channels, struct {
-						Id   int    `gorm:"column:id"`
-						Name string `gorm:"column:name"`
-					}{
-						Id:   channelId,
-						Name: cacheChannel.Name,
-					})
-				}
-			}
-		} else {
-			// Bulk query channels from DB
-			if err = DB.Table("channels").Select("id, name").Where("id IN ?", channelIds.Items()).Find(&channels).Error; err != nil {
-				return logs, total, err
-			}
-		}
-		channelMap := make(map[int]string, len(channels))
-		for _, channel := range channels {
-			channelMap[channel.Id] = channel.Name
-		}
-		for i := range logs {
-			logs[i].ChannelName = channelMap[logs[i].ChannelId]
-		}
+	if channelIds.Len() == 0 {
+		return nil
 	}
 
-	return logs, total, err
+	var channels []struct {
+		Id   int    `gorm:"column:id"`
+		Name string `gorm:"column:name"`
+	}
+	if common.MemoryCacheEnabled {
+		for _, channelId := range channelIds.Items() {
+			if cacheChannel, err := CacheGetChannel(channelId); err == nil {
+				channels = append(channels, struct {
+					Id   int    `gorm:"column:id"`
+					Name string `gorm:"column:name"`
+				}{
+					Id:   channelId,
+					Name: cacheChannel.Name,
+				})
+			}
+		}
+	} else if err := DB.Table("channels").Select("id, name").Where("id IN ?", channelIds.Items()).Find(&channels).Error; err != nil {
+		return err
+	}
+
+	channelMap := make(map[int]string, len(channels))
+	for _, channel := range channels {
+		channelMap[channel.Id] = channel.Name
+	}
+	for i := range logs {
+		logs[i].ChannelName = channelMap[logs[i].ChannelId]
+	}
+	return nil
 }
 
 const logSearchCountLimit = 10000

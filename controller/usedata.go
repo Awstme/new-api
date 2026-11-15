@@ -123,3 +123,20 @@ func GetUserFlowQuotaDates(c *gin.Context) {
 	})
 	return
 }
+
+func GetFreeQuotaStats(c *gin.Context) {
+	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
+	if !ok {
+		return
+	}
+	stats, err := model.GetFreeQuotaStats(startTimestamp, endTimestamp)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    stats,
+	})
+}
