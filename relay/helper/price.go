@@ -413,7 +413,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 	}
 	discount, discountGroup := modelDiscountRatio(info, billingModelName)
 
-	requestInput, err := ResolveIncomingBillingExprRequestInput(c, info)
+	requestInput, err := ResolveIncomingBillingExprRequestInput(c, info, usedVars["param"])
 	if err != nil {
 		return hosttypes.PriceData{}, err
 	}

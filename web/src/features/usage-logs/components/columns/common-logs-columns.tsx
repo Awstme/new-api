@@ -76,6 +76,7 @@ import type { LogOtherData } from '../../types'
 import { DetailsDialog } from '../dialogs/details-dialog'
 import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
+import { RequestPluginLogMarker } from '../request-plugin-record'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
 import { useUsageLogsContext } from '../usage-logs-provider'
 
@@ -769,6 +770,7 @@ export function useCommonLogsColumns(
             log.type === LOG_TYPE_ENUM.ERROR
               ? log.content.replace(/^status_code=\d+,\s*/, '')
               : ''
+          const requestPlugins = parseLogOther(log.other)?.request_plugins
 
           return (
             <div className='flex w-fit max-w-[220px] flex-col gap-0.5'>
@@ -785,6 +787,9 @@ export function useCommonLogsColumns(
                   {errorMessage}
                 </span>
               )}
+              {requestPlugins?.length ? (
+                <RequestPluginLogMarker items={requestPlugins} />
+              ) : null}
             </div>
           )
         },
@@ -869,7 +874,7 @@ export function useCommonLogsColumns(
           onToggleCostE4 ? (
             <button
               type='button'
-              className='inline-flex items-center gap-1 font-[inherit] hover:text-foreground'
+              className='hover:text-foreground inline-flex items-center gap-1 font-[inherit]'
               onClick={onToggleCostE4}
               aria-pressed={costE4}
               title={t('Toggle e-4 view')}
@@ -1021,5 +1026,15 @@ export function useCommonLogsColumns(
     return columns
     // Log formatters read currency settings from the store.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, isAdmin, isRoot, showBillingSource, costE4, onToggleCostE4, expandedRowId, onToggleExpand, currency])
+  }, [
+    t,
+    isAdmin,
+    isRoot,
+    showBillingSource,
+    costE4,
+    onToggleCostE4,
+    expandedRowId,
+    onToggleExpand,
+    currency,
+  ])
 }
