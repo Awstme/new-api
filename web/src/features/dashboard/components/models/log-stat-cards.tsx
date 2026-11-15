@@ -73,7 +73,8 @@ export function LogStatCards(props: LogStatCardsProps) {
   const [timeRangeMinutes, setTimeRangeMinutes] = useState(0)
 
   const { filters, onDataUpdate } = props
-  const freeQuotaStats = useFreeQuotaStats(filters, isAdmin).stats
+  const showFreeQuota = isAdmin && !filters?.username
+  const freeQuotaStats = useFreeQuotaStats(filters, showFreeQuota).stats
   const freeQuota = freeQuotaStats?.free_total ?? freeQuotaStats?.total ?? 0
 
   useEffect(() => {
@@ -127,7 +128,7 @@ export function LogStatCards(props: LogStatCardsProps) {
   const items = statCardsConfig.map((config) => {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
     const quotaValue =
-      config.key === 'quota' && isAdmin && freeQuotaStats
+      config.key === 'quota' && showFreeQuota && freeQuotaStats
         ? freeQuotaStats.consumption_total
         : rawValue
     const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
@@ -145,7 +146,7 @@ export function LogStatCards(props: LogStatCardsProps) {
       value: formatted.displayValue,
       fullValue: formatted.fullValue,
       desc:
-        config.key === 'quota' && isAdmin
+        config.key === 'quota' && showFreeQuota
           ? `${t('Free quota used')}: ${formatQuota(freeQuota)}`
           : config.description,
       icon: config.icon,

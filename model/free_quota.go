@@ -241,6 +241,30 @@ func GetFreeQuotaStats(startTimestamp int64, endTimestamp int64) (FreeQuotaStats
 		simulateFreeQuotaEvents(userId, events, inRange, ensureAggregate, sourceUsed, sourceMethods)
 	}
 
+	// Refunds from earlier periods can make a source negative. Keep the
+	// displayed attribution nonnegative and within each user's net consumption,
+	// retaining the established source order when offsets cross sources.
+	remainingByUser := make(map[int]int64, len(rangeConsumption))
+	for _, item := range rangeConsumption {
+		remainingByUser[item.UserId] = max(0, item.Quota)
+	}
+	for _, source := range freeQuotaSourceOrder {
+		sourceUsed[source] = 0
+		clear(sourceMethods[source])
+		for userId, aggregate := range bySource[source] {
+			used := min(max(0, aggregate.User.Used), remainingByUser[userId])
+			aggregate.User.Used = used
+			remainingByUser[userId] -= used
+			sourceUsed[source] += used
+			for _, method := range []string{"exact", "log_text", "config"} {
+				weight := min(max(0, aggregate.Methods[method]), used)
+				aggregate.Methods[method] = weight
+				sourceMethods[source][method] += weight
+				used -= weight
+			}
+		}
+	}
+
 	stats.Sources = make([]FreeQuotaSource, 0, len(freeQuotaSourceOrder))
 	for _, source := range freeQuotaSourceOrder {
 		users := make([]FreeQuotaUser, 0, len(bySource[source]))
@@ -381,7 +405,7 @@ func simulateFreeQuotaEvents(
 			continue
 		}
 		if event.Order == 2 {
-			refundQuotaChunks(userId, amount, event.TaskId, buckets, chunks, inRange, ensureAggregate, sourceUsed, sourceMethods)
+			refundQuotaChunks(userId, amount, event.Time, event.TaskId, buckets, chunks, inRange, ensureAggregate, sourceUsed, sourceMethods)
 			continue
 		}
 		for index := range buckets {
@@ -436,6 +460,7 @@ type freeQuotaUserAggregate struct {
 func refundQuotaChunks(
 	userId int,
 	amount int64,
+	refundTime int64,
 	taskId string,
 	buckets []freeQuotaBucket,
 	chunks []freeQuotaChunk,
@@ -457,7 +482,8 @@ func refundQuotaChunks(
 		}
 		bucket := &buckets[chunk.Bucket]
 		bucket.Remaining += take
-		if !inRange(chunk.Time) {
+		// Attribute refunds to their posting period, matching range consumption.
+		if !inRange(refundTime) {
 			continue
 		}
 		sourceUsed[bucket.Source] -= take

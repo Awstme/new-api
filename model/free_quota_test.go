@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -377,4 +378,27 @@ func TestInvitationTransferRecordsOnlyCreditedQuota(t *testing.T) {
 	var count int64
 	require.NoError(t, db.Model(&Log{}).Where("type = ?", LogTypeSystem).Count(&count).Error)
 	assert.EqualValues(t, 1, count, "failed transfers cannot grant quota")
+}
+
+func TestCrossPeriodRefundReducesCurrentFreeConsumption(t *testing.T) {
+	for _, splitSources := range []bool{false, true} {
+		t.Run(fmt.Sprint(splitSources), func(t *testing.T) {
+			db := setupFreeQuotaTestDB(t)
+			rows := []*Log{
+				{UserId: 1, CreatedAt: 10, Type: LogTypeSystem, Content: "New user sign-up bonus 200", Other: `{"grant_type":"new_user","grant_quota":200}`},
+				{UserId: 1, CreatedAt: 20, Type: LogTypeConsume, Quota: 100, Other: `{"task_id":"old"}`},
+				{UserId: 1, CreatedAt: 40, Type: LogTypeConsume, Quota: 100, Other: `{"task_id":"new"}`},
+				{UserId: 1, CreatedAt: 50, Type: LogTypeRefund, Quota: 50, Other: `{"task_id":"old"}`},
+			}
+			if splitSources {
+				rows[0].Other = `{"grant_type":"new_user","grant_quota":100}`
+				rows = append(rows, &Log{UserId: 1, CreatedAt: 25, Type: LogTypeSystem, Content: "Invitation code bonus 100", Other: `{"grant_type":"invitee","grant_quota":100}`})
+			}
+			require.NoError(t, db.Create(&rows).Error)
+			stats, err := GetFreeQuotaStats(30, 60)
+			require.NoError(t, err)
+			assert.EqualValues(t, 50, stats.FreeTotal)
+			assert.EqualValues(t, 50, stats.ConsumptionTotal)
+		})
+	}
 }

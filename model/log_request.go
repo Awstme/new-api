@@ -468,6 +468,8 @@ func mergeLogSessionRows(requests []*Log) *Log {
 		merged.CreatedAt = max(merged.CreatedAt, request.CreatedAt)
 		if request.Type == LogTypeConsume && policy.BillingSource == "subscription" && policy.SubscriptionConsumed != nil {
 			merged.Quota += *policy.SubscriptionConsumed
+		} else if request.Type == LogTypeRefund {
+			merged.Quota -= request.Quota
 		} else {
 			merged.Quota += request.Quota
 		}
@@ -492,6 +494,15 @@ func mergeLogSessionRows(requests []*Log) *Log {
 		}
 	}
 	merged.Type = carrier.Type
+	for _, request := range requests {
+		if request.Type == LogTypeConsume {
+			merged.Type = LogTypeConsume
+			break
+		}
+	}
+	if merged.Type == LogTypeRefund {
+		merged.Quota = -merged.Quota
+	}
 	if len(requests) > 1 {
 		merged.Other = withSessionInfo(carrier.Other, summaries, requests, errorRequests, logCount)
 	}
@@ -512,19 +523,23 @@ func withSessionInfo(other string, summaries []map[string]any, requests []*Log, 
 	sources := make(map[string]struct{})
 	subscriptionConsumed, walletDeducted := 0, 0
 	for _, request := range requests {
-		if request.Type != LogTypeConsume {
+		if request.Type != LogTypeConsume && request.Type != LogTypeRefund {
 			continue
 		}
 		billing := parseLogRequestPolicy(request.Other)
 		sources[billing.BillingSource] = struct{}{}
+		sign := 1
+		if request.Type == LogTypeRefund {
+			sign = -1
+		}
 		if billing.BillingSource == "subscription" {
 			consumed := request.Quota
 			if billing.SubscriptionConsumed != nil {
 				consumed = *billing.SubscriptionConsumed
 			}
-			subscriptionConsumed += consumed
+			subscriptionConsumed += sign * consumed
 		} else {
-			walletDeducted += request.Quota
+			walletDeducted += sign * request.Quota
 		}
 	}
 	// Per-subscription balances and IDs belong to individual requests. Keep

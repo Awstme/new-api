@@ -375,3 +375,22 @@ func TestSessionKeepsCombinedSubscriptionCost(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionRefundReducesConsumption(t *testing.T) {
+	for _, refund := range []int{40, 100} {
+		t.Run(common.LogText("refund%d", refund), func(t *testing.T) {
+			session := mergeLogSessionRows([]*Log{
+				{Id: 1, Type: LogTypeConsume, Quota: 100, Other: `{"billing_source":"wallet"}`},
+				{Id: 2, Type: LogTypeRefund, Quota: refund, Other: `{"billing_source":"wallet"}`},
+			})
+			assert.Equal(t, 100-refund, session.Quota)
+			assert.Equal(t, LogTypeConsume, session.Type)
+			var other map[string]any
+			require.NoError(t, common.UnmarshalJsonStr(session.Other, &other))
+			assert.EqualValues(t, 100-refund, other["wallet_quota_deducted"])
+		})
+	}
+	session := mergeLogSessionRows([]*Log{{Type: LogTypeRefund, Quota: 100}})
+	assert.Equal(t, LogTypeRefund, session.Type)
+	assert.Equal(t, 100, session.Quota)
+}
