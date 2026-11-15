@@ -1,6 +1,13 @@
 package model
 
 import (
+	"fmt"
+	sqlmysql "github.com/go-sql-driver/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"net"
+	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -12,27 +19,83 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupLogRequestTestDB(t *testing.T) *gorm.DB {
+// openLogStatisticsTestDB isolates every external test in a fresh database.
+// TEST_LOG_DB_DIALECT selects mysql/postgres; the default remains SQLite.
+func openLogStatisticsTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	kind := os.Getenv("TEST_LOG_DB_DIALECT")
+	if kind == "" {
+		kind = "sqlite"
+	}
+	var driver gorm.Dialector
+	switch kind {
+	case "sqlite":
+		driver = sqlite.Open(":memory:")
+	case "mysql", "postgres":
+		name := fmt.Sprintf("newapi_stats_%d", time.Now().UnixNano())
+		var original gorm.Dialector
+		if kind == "mysql" {
+			dsn := os.Getenv("TEST_MYSQL_DSN")
+			require.NotEmpty(t, dsn)
+			config, err := sqlmysql.ParseDSN(dsn)
+			require.NoError(t, err)
+			host, _, err := net.SplitHostPort(config.Addr)
+			require.NoError(t, err)
+			require.True(t, net.ParseIP(host).IsLoopback(), "only loopback test databases are allowed")
+			original = mysql.Open(dsn)
+			config.DBName = name
+			driver = mysql.Open(config.FormatDSN())
+		} else {
+			dsn := os.Getenv("TEST_POSTGRES_DSN")
+			require.NotEmpty(t, dsn)
+			parsed, err := url.Parse(dsn)
+			require.NoError(t, err)
+			require.True(t, net.ParseIP(parsed.Hostname()).IsLoopback(), "use a loopback PostgreSQL URL")
+			original = postgres.Open(dsn)
+			parsed.Path = "/" + name
+			driver = postgres.Open(parsed.String())
+		}
+		admin, err := gorm.Open(original, &gorm.Config{})
+		require.NoError(t, err)
+		sqlAdmin, err := admin.DB()
+		require.NoError(t, err)
+		require.NoError(t, admin.Exec("CREATE DATABASE "+name).Error)
+		t.Cleanup(func() {
+			assert.NoError(t, admin.Exec("DROP DATABASE "+name).Error)
+			assert.NoError(t, sqlAdmin.Close())
+		})
+	default:
+		t.Fatalf("unsupported test database: %s", kind)
+	}
+	db, err := gorm.Open(driver, &gorm.Config{})
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
-
 	previousDB, previousLogDB := DB, LOG_DB
-	previousGroupCol := logGroupCol
-	previousType := common.LogDatabaseType()
+	previousMain, previousLog := common.MainDatabaseType(), common.LogDatabaseType()
 	DB, LOG_DB = db, db
-	logGroupCol = "`group`"
-	common.SetLogDatabaseType(common.DatabaseTypeSQLite)
+	common.SetDatabaseTypes(common.DatabaseType(kind), common.DatabaseType(kind))
+	initCol()
 	t.Cleanup(func() {
 		DB, LOG_DB = previousDB, previousLogDB
-		logGroupCol = previousGroupCol
-		common.SetLogDatabaseType(previousType)
+		common.SetDatabaseTypes(previousMain, previousLog)
+		initCol()
 		assert.NoError(t, sqlDB.Close())
 	})
+	query := "SELECT version()"
+	if kind == "sqlite" {
+		query = "SELECT sqlite_version()"
+	}
+	var version string
+	require.NoError(t, db.Raw(query).Scan(&version).Error)
+	t.Logf("statistics database: %s %s", kind, version)
+	return db
+}
 
+func setupLogRequestTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db := openLogStatisticsTestDB(t)
 	require.NoError(t, db.AutoMigrate(&Log{}))
 	require.NoError(t, db.Exec("CREATE TABLE channels (id integer primary key, name text)").Error)
 	require.NoError(t, db.Exec("INSERT INTO channels (id, name) VALUES (12, 'ch12'), (16, 'ch16'), (17, 'ch17')").Error)
@@ -308,12 +371,19 @@ func TestLogSummaryCountsRequests(t *testing.T) {
 func TestLogSummaryRejectsOversizedRange(t *testing.T) {
 	db := setupLogRequestTestDB(t)
 	// Exercise the public limit with real rows, without generating request payloads.
-	require.NoError(t, db.Exec(`
-WITH RECURSIVE entries(n) AS (
-  SELECT 1 UNION ALL SELECT n + 1 FROM entries WHERE n < 200001
-)
-INSERT INTO logs (request_id, type, created_at, quota)
-SELECT 'request', 2, 100, 1 FROM entries`).Error)
+	rows := make([]struct {
+		RequestId string
+		Type      int
+		CreatedAt int64
+		Quota     int
+	}, 200001)
+	for i := range rows {
+		rows[i].RequestId = "request"
+		rows[i].Type = LogTypeConsume
+		rows[i].CreatedAt = 100
+		rows[i].Quota = 1
+	}
+	require.NoError(t, db.Table("logs").CreateInBatches(&rows, 500).Error)
 	summary, err := SummarizeLogs(LogFilter{}, 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Narrow the time range")

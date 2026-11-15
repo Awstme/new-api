@@ -7,7 +7,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 
-	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -15,25 +14,11 @@ import (
 
 func setupFreeQuotaTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	sqlDB, err := db.DB()
-	require.NoError(t, err)
-	sqlDB.SetMaxOpenConns(1)
-
-	previousDB, previousLogDB := DB, LOG_DB
-	previousType := common.LogDatabaseType()
-	DB, LOG_DB = db, db
-	common.SetLogDatabaseType(common.DatabaseTypeSQLite)
-	t.Cleanup(func() {
-		DB, LOG_DB = previousDB, previousLogDB
-		common.SetLogDatabaseType(previousType)
-		assert.NoError(t, sqlDB.Close())
-	})
+	db := openLogStatisticsTestDB(t)
 
 	require.NoError(t, db.AutoMigrate(&Log{}, &AuditLog{}))
-	require.NoError(t, db.Exec("CREATE TABLE users (id integer primary key, username text, created_at bigint, deleted_at datetime)").Error)
-	require.NoError(t, db.Exec("CREATE TABLE redemptions (id integer primary key, user_id integer, used_user_id integer, quota integer, status integer, redeemed_time bigint, deleted_at datetime)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE users (id integer primary key, username text, created_at bigint, deleted_at timestamp)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE redemptions (id integer primary key, user_id integer, used_user_id integer, quota integer, status integer, redeemed_time bigint, deleted_at timestamp)").Error)
 	require.NoError(t, db.Exec("CREATE TABLE checkins (id integer primary key, user_id integer, checkin_date text, quota_awarded integer, created_at bigint)").Error)
 	return db
 }
