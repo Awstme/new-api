@@ -148,6 +148,41 @@ test('keeps log details open when the parent refreshes with unchanged data', asy
   expect(screen.getByRole('dialog')).toBeVisible()
 })
 
+test('session view lists merged requests in details', async () => {
+  renderPreview({
+    session_request_count: 2,
+    session_error_count: 1,
+    session_log_count: 2,
+    session_window_seconds: 300,
+    session_requests: [
+      {
+        request_id: 'req-a',
+        created_at: 1,
+        type: 2,
+        quota: 10,
+        attempts: 1,
+      },
+      {
+        request_id: 'req-b',
+        created_at: 2,
+        type: 5,
+        status_code: 401,
+        quota: 0,
+        attempts: 2,
+        error: 'upstream rejected the key',
+      },
+    ],
+  })
+
+  fireEvent.click(screen.getByTitle('Click to view full details'))
+
+  expect(await screen.findByText('Session Requests (2)')).toBeVisible()
+  expect(screen.getByText('req-a')).toBeVisible()
+  expect(screen.getByText('req-b')).toBeVisible()
+  expect(screen.getByText('HTTP 401')).toBeVisible()
+  expect(screen.getByText('upstream rejected the key')).toBeVisible()
+})
+
 test.each([
   {
     name: 'fixed expression zero price',

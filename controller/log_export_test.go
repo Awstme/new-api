@@ -244,3 +244,26 @@ func TestAcquireLogExportLock(t *testing.T) {
 		})
 	}
 }
+
+func TestSelfGroupedLogsHidePrivilegedData(t *testing.T) {
+	db, _ := newAuditTestDatabase(t, "sqlite", "")
+	useLogExportDatabases(t, db, db, common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	require.NoError(t, db.AutoMigrate(&model.Log{}, &model.Channel{}))
+	require.NoError(t, db.Create(&model.Channel{Id: 9, Name: "private-provider"}).Error)
+	require.NoError(t, db.Create(&model.Log{
+		UserId: 1, RequestId: "owned-request", Type: model.LogTypeError, CreatedAt: time.Now().Unix(), ChannelId: 9,
+		Other: `{"admin_info":{"upstream_body":"admin-diagnostic","use_channel":["9"]},"root_info":{"upstream_task_id":"root-diagnostic"}}`,
+	}).Error)
+	for _, grouping := range []string{"request", "session"} {
+		t.Run(grouping, func(t *testing.T) {
+			response := callLogHandler(t, GetUserLogs, 1, common.RoleCommonUser, "group_by="+grouping)[0]
+			require.Equal(t, true, response["success"])
+			items := response["data"].(map[string]any)["items"].([]any)
+			require.Len(t, items, 1)
+			row := items[0].(map[string]any)
+			assert.Empty(t, row["channel_name"])
+			assert.NotContains(t, row["other"], "admin_info")
+			assert.NotContains(t, row["other"], "root_info")
+		})
+	}
+}

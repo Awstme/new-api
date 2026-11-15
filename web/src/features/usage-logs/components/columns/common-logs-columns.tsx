@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
-import { GitBranch, Sparkles, KeyRound } from 'lucide-react'
+import { ChevronRight, GitBranch, Sparkles, KeyRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -53,7 +53,7 @@ import { formatLogQuota, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
-import { LOG_TYPE_ALL_VALUE } from '../../constants'
+import { LOG_TYPE_ALL_VALUE, LOG_TYPE_ENUM } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import {
   formatModelName,
@@ -351,7 +351,11 @@ function buildTypeDetailSegments(
 export function useCommonLogsColumns(
   isAdmin: boolean,
   isRoot: boolean,
-  showBillingSource = false
+  showBillingSource = false,
+  costE4 = false,
+  onToggleCostE4?: () => void,
+  expandedRowId?: string | null,
+  onToggleExpand?: (rowId: string) => void
 ): ColumnDef<UsageLog>[] {
   const { t } = useTranslation()
   const currency = useSystemConfigStore((state) => state.config.currency)
@@ -364,19 +368,76 @@ export function useCommonLogsColumns(
           const log = row.original
           const timestamp = row.getValue('created_at') as number
           const config = getLogTypeConfig(log.type)
+          const other = parseLogOther(log.other)
+          const errorStatus =
+            log.type === LOG_TYPE_ENUM.ERROR ? other?.status_code : undefined
+          const sessionCount = other?.session_request_count ?? 0
+          const sessionErrorCount = other?.session_error_count ?? 0
+          const mergeCount = Math.max(
+            sessionCount,
+            other?.request_log_count ?? 0
+          )
+          const canExpand = onToggleExpand != null && mergeCount > 1
+          const expanded = expandedRowId === row.id
 
           return (
             <div className='flex min-w-0 flex-col gap-0.5'>
-              <span className='truncate font-mono text-xs tabular-nums'>
-                {formatTimestampToDate(timestamp)}
-              </span>
-              <StatusBadge
-                label={t(config.label)}
-                variant={config.color as StatusBadgeProps['variant']}
-                size='sm'
-                copyable={false}
-                className='-ml-1.5 !text-xs [&_span]:!text-xs'
-              />
+              <div className='flex min-w-0 items-center gap-1'>
+                {canExpand && (
+                  <button
+                    type='button'
+                    className='text-muted-foreground hover:bg-muted hover:text-foreground -ml-1 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors'
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onToggleExpand?.(row.id)
+                    }}
+                    aria-expanded={expanded}
+                    aria-label={
+                      expanded ? t('Collapse raw logs') : t('Expand raw logs')
+                    }
+                    title={
+                      expanded ? t('Collapse raw logs') : t('Expand raw logs')
+                    }
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'size-3.5 transition-transform',
+                        expanded && 'rotate-90'
+                      )}
+                    />
+                  </button>
+                )}
+                <span className='truncate font-mono text-xs tabular-nums'>
+                  {formatTimestampToDate(timestamp)}
+                </span>
+              </div>
+              <div className='flex items-center gap-1.5'>
+                <StatusBadge
+                  label={t(config.label)}
+                  variant={config.color as StatusBadgeProps['variant']}
+                  size='sm'
+                  copyable={false}
+                  className='-ml-1.5 !text-xs [&_span]:!text-xs'
+                />
+                {errorStatus != null && (
+                  <span className='text-[11px] font-medium text-red-600 dark:text-red-400'>
+                    HTTP {errorStatus}
+                  </span>
+                )}
+              </div>
+              {sessionCount > 1 && (
+                <span
+                  className='text-muted-foreground text-[11px]'
+                  title={t(
+                    'Same user, token and model within a 5-minute window'
+                  )}
+                >
+                  {t('Session')} · {sessionCount}
+                  {sessionErrorCount > 0
+                    ? ` · ${sessionErrorCount} ${t('errors')}`
+                    : ''}
+                </span>
+              )}
             </div>
           )
         },
@@ -426,6 +487,9 @@ export function useCommonLogsColumns(
               other?.admin_info?.is_multi_key === true &&
               typeof multiKeyIndex === 'number' &&
               Number.isFinite(multiKeyIndex)
+            const requestAttempts = other?.admin_info?.request_attempts
+            const showRequestAttempts =
+              typeof requestAttempts === 'number' && requestAttempts > 1
 
             return (
               <TooltipProvider>
@@ -486,6 +550,17 @@ export function useCommonLogsColumns(
                           </PopoverContent>
                         </Popover>
                       )}
+                      {showRequestAttempts && (
+                        <StatusBadge
+                          label={`×${requestAttempts}`}
+                          size='sm'
+                          showDot={false}
+                          copyable={false}
+                          variant='neutral'
+                          className='h-5 min-w-5 justify-center rounded-full px-1 font-mono text-xs'
+                          aria-label={`${t('Attempts')}: ${requestAttempts}`}
+                        />
+                      )}
                       {affinity && (
                         <button
                           type='button'
@@ -527,6 +602,11 @@ export function useCommonLogsColumns(
                       {showMultiKeyIndex && (
                         <p className='text-muted-foreground text-xs'>
                           {t('Key')}: {multiKeyIndex}
+                        </p>
+                      )}
+                      {showRequestAttempts && (
+                        <p className='text-muted-foreground text-xs'>
+                          {t('Attempts')}: {requestAttempts}
                         </p>
                       )}
                       {affinity && (
@@ -685,14 +765,26 @@ export function useCommonLogsColumns(
           if (!isDisplayableLogType(log.type)) return null
 
           const modelInfo = formatModelName(log)
+          const errorMessage =
+            log.type === LOG_TYPE_ENUM.ERROR
+              ? log.content.replace(/^status_code=\d+,\s*/, '')
+              : ''
 
           return (
-            <div className='flex w-fit flex-col gap-0.5'>
+            <div className='flex w-fit max-w-[220px] flex-col gap-0.5'>
               <ModelBadge
                 modelName={modelInfo.name}
                 actualModel={modelInfo.actualModel}
                 responseModel={modelInfo.responseModel}
               />
+              {errorMessage && (
+                <span
+                  className='truncate text-[11px] leading-tight text-red-600 dark:text-red-400'
+                  title={errorMessage}
+                >
+                  {errorMessage}
+                </span>
+              )}
             </div>
           )
         },
@@ -773,7 +865,30 @@ export function useCommonLogsColumns(
       },
       {
         accessorKey: 'quota',
-        header: t('Cost'),
+        header: () =>
+          onToggleCostE4 ? (
+            <button
+              type='button'
+              className='inline-flex items-center gap-1 font-[inherit] hover:text-foreground'
+              onClick={onToggleCostE4}
+              aria-pressed={costE4}
+              title={t('Toggle e-4 view')}
+            >
+              {t('Cost')}
+              <span
+                className={cn(
+                  'rounded px-1 font-mono text-[10px] leading-none',
+                  costE4
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground/50'
+                )}
+              >
+                e-4
+              </span>
+            </button>
+          ) : (
+            t('Cost')
+          ),
         cell: ({ row }) => {
           const log = row.original
           if (!isDisplayableLogType(log.type)) return null
@@ -785,6 +900,7 @@ export function useCommonLogsColumns(
               quota={quota}
               other={other}
               showBillingSource={showBillingSource}
+              costE4={costE4}
             />
           )
         },
@@ -879,7 +995,10 @@ export function useCommonLogsColumns(
               <button
                 type='button'
                 className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
-                onClick={() => setDialogOpen(true)}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setDialogOpen(true)
+                }}
                 title={t('Click to view full details')}
               >
                 {detailPreview}
@@ -902,5 +1021,5 @@ export function useCommonLogsColumns(
     return columns
     // Log formatters read currency settings from the store.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, isAdmin, isRoot, showBillingSource, currency])
+  }, [t, isAdmin, isRoot, showBillingSource, costE4, onToggleCostE4, expandedRowId, onToggleExpand, currency])
 }

@@ -149,6 +149,24 @@ export async function getUserInfo(
   return res.data
 }
 
+export interface ExpandLogsResponse {
+  success: boolean
+  message?: string
+  data?: {
+    items: UsageLog[]
+    truncated?: boolean
+  }
+}
+
+export async function expandLogs(
+  requestIds: string[]
+): Promise<ExpandLogsResponse> {
+  const res = await api.get<ExpandLogsResponse>('/api/log/expand', {
+    params: { request_ids: requestIds.join(',') },
+  })
+  return res.data
+}
+
 // ============================================================================
 // MjProxy (Drawing) Logs API
 // ============================================================================

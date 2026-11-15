@@ -16,17 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { formatQuota, formatCompactNumber } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { getUserInfo } from '../../api'
 import type { UserInfo } from '../../types'
+
+const route = getRouteApi('/_authenticated/usage-logs/$section')
 
 interface UserInfoDialogProps {
   userId: number | null
@@ -49,6 +53,8 @@ export function UserInfoDialog({
   onOpenChange,
 }: UserInfoDialogProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const search = route.useSearch()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -77,6 +83,46 @@ export function UserInfoDialog({
     }
   }, [open, userId, fetchUserInfo])
 
+  const handleViewLogs = useCallback(() => {
+    if (!userInfo?.username) return
+    void navigate({
+      to: '/usage-logs/$section',
+      params: { section: 'common' },
+      search: {
+        ...search,
+        username: userInfo.username,
+        model: undefined,
+        token: undefined,
+        group: undefined,
+        requestId: undefined,
+        upstreamRequestId: undefined,
+        q: undefined,
+        type: undefined,
+        view: 'sessions',
+        page: 1,
+      },
+    })
+    onOpenChange(false)
+  }, [navigate, onOpenChange, search, userInfo])
+
+  const handleOpenUserManagement = useCallback(() => {
+    if (!userInfo?.username) return
+    void navigate({
+      to: '/users',
+      search: { filter: userInfo.username },
+    })
+    onOpenChange(false)
+  }, [navigate, onOpenChange, userInfo])
+
+  const footer = userInfo ? (
+    <>
+      <Button variant='outline' onClick={handleOpenUserManagement}>
+        {t('Open user management')}
+      </Button>
+      <Button onClick={handleViewLogs}>{t("View this user's logs")}</Button>
+    </>
+  ) : null
+
   return (
     <Dialog
       open={open}
@@ -88,6 +134,7 @@ export function UserInfoDialog({
       contentClassName='sm:max-w-lg'
       contentHeight='auto'
       bodyClassName='space-y-4'
+      footer={footer}
     >
       {isLoading && (
         <div className='flex items-center justify-center py-8'>

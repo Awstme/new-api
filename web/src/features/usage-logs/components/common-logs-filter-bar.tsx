@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQueryClient, useIsFetching, useQuery } from '@tanstack/react-query'
 import { useNavigate, getRouteApi } from '@tanstack/react-router'
 import type { Table } from '@tanstack/react-table'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Search } from 'lucide-react'
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -88,6 +88,7 @@ function buildSearchSourceKey(values: {
   startTime?: unknown
   endTime?: unknown
   channel?: unknown
+  q?: unknown
   model?: unknown
   token?: unknown
   group?: unknown
@@ -100,6 +101,7 @@ function buildSearchSourceKey(values: {
     values.startTime,
     values.endTime,
     values.channel,
+    values.q,
     values.model,
     values.token,
     values.group,
@@ -152,6 +154,7 @@ export function CommonLogsFilterBar<TData>(
       startTime: searchParams.startTime,
       endTime: searchParams.endTime,
       channel: searchParams.channel,
+      q: searchParams.q,
       model: searchParams.model,
       token: searchParams.token,
       group: searchParams.group,
@@ -166,6 +169,7 @@ export function CommonLogsFilterBar<TData>(
         : start,
       endTime: searchParams.endTime ? new Date(searchParams.endTime) : end,
       channel: searchParams.channel || undefined,
+      q: searchParams.q || undefined,
       model: searchParams.model || undefined,
       token: searchParams.token || undefined,
       group: searchParams.group || undefined,
@@ -182,6 +186,7 @@ export function CommonLogsFilterBar<TData>(
     searchParams.startTime,
     searchParams.endTime,
     searchParams.channel,
+    searchParams.q,
     searchParams.model,
     searchParams.token,
     searchParams.group,
@@ -221,12 +226,13 @@ export function CommonLogsFilterBar<TData>(
           ...filterParams,
           type: [logType],
           page: 1,
+          view: searchParams.view,
         },
       })
       queryClient.invalidateQueries({ queryKey: ['logs'] })
       queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
     },
-    [filters, logType, navigate, queryClient]
+    [filters, logType, navigate, queryClient, searchParams.view]
   )
 
   const handleReset = useCallback(() => {
@@ -234,6 +240,7 @@ export function CommonLogsFilterBar<TData>(
     const resetFilters: CommonLogFilters = { startTime: start, endTime: end }
     const resetSearch = {
       type: [LOG_TYPE_ALL_VALUE],
+      q: '',
       startTime: start.getTime(),
       endTime: end.getTime(),
     }
@@ -249,11 +256,12 @@ export function CommonLogsFilterBar<TData>(
       search: {
         page: 1,
         ...resetSearch,
+        view: searchParams.view,
       },
     })
     queryClient.invalidateQueries({ queryKey: ['logs'] })
     queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
-  }, [navigate, queryClient])
+  }, [navigate, queryClient, searchParams.view])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -271,7 +279,11 @@ export function CommonLogsFilterBar<TData>(
 
   const hasTypeFilter = logType !== LOG_TYPE_ALL_VALUE
   const hasAdditionalFilters =
-    !!filters.model || !!filters.group || hasTypeFilter || hasExpandedFilters
+    !!filters.q ||
+    !!filters.model ||
+    !!filters.group ||
+    hasTypeFilter ||
+    hasExpandedFilters
 
   const expandedFilterCount = [
     filters.token,
@@ -319,6 +331,24 @@ export function CommonLogsFilterBar<TData>(
     </Tooltip>
   )
 
+  const searchFilter = (
+    <LogsFilterField wide>
+      <div className='relative'>
+        <Search
+          className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2'
+          aria-hidden='true'
+        />
+        <LogsFilterInput
+          placeholder={t('Search user, token, model, request ID or error text')}
+          aria-label={t('Search logs')}
+          className='pl-8'
+          value={filters.q || ''}
+          onChange={(e) => handleChange('q', e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+      </div>
+    </LogsFilterField>
+  )
   const dateRangeFilter = (
     <LogsFilterField wide>
       <CompactDateTimeRangePicker
@@ -493,6 +523,7 @@ export function CommonLogsFilterBar<TData>(
       actionEnd={<ExportLogsDialog />}
       primaryFilters={
         <>
+          {searchFilter}
           {dateRangeFilter}
           {modelFilter}
           {groupFilter}
@@ -503,6 +534,7 @@ export function CommonLogsFilterBar<TData>(
       mobilePinnedFilters={dateRangeFilter}
       mobileFilters={
         <>
+          {searchFilter}
           {modelFilter}
           {groupFilter}
           {typeFilter}
@@ -510,8 +542,8 @@ export function CommonLogsFilterBar<TData>(
         </>
       }
       mobileFilterCount={
-        [filters.model, filters.group, hasTypeFilter].filter(Boolean).length +
-        expandedFilterCount
+        [filters.q, filters.model, filters.group, hasTypeFilter].filter(Boolean)
+          .length + expandedFilterCount
       }
       hasAdvancedActiveFilters={hasExpandedFilters}
       advancedFilterCount={expandedFilterCount}

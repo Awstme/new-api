@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -86,6 +87,13 @@ func ClaudeErrorWrapperLocal(err error, code string, statusCode int) *dto.Claude
 
 func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFail bool) (newApiErr *types.NewAPIError) {
 	newApiErr = types.InitOpenAIError(types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
+	var responseBodyText string
+	defer func() {
+		if newApiErr == nil || responseBodyText == "" {
+			return
+		}
+		newApiErr.SetUpstreamBody(upstreamBodyPreview(responseBodyText))
+	}()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -93,7 +101,7 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 	}
 	CloseResponseBodyGracefully(resp)
 	var errResponse dto.GeneralErrorResponse
-	responseBodyText := string(responseBody)
+	responseBodyText = string(responseBody)
 	responseBodyPreview := common.LocalLogPreview(responseBodyText)
 	buildErrWithBody := func(message string) error {
 		if message == "" {
@@ -135,6 +143,24 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 		newApiErr.Err = buildErrWithBody(newApiErr.Error())
 	}
 	return
+}
+
+const upstreamBodyLogLimit = 2048
+
+// upstreamSecretPattern masks credentials that upstream errors sometimes echo
+// in JSON or key/value form before the body is stored for administrators.
+var upstreamSecretPattern = regexp.MustCompile(`(?i)(["']?(?:api[_-]?key|authorization|x-api-key|access_token)["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\r\n,}\]]+)`)
+
+// upstreamBodyPreview returns a masked, size-limited upstream error body for
+// administrator diagnostics. The limit applies even in debug builds so an
+// accidental log database write cannot grow without bound.
+func upstreamBodyPreview(body string) string {
+	body = upstreamSecretPattern.ReplaceAllString(body, `${1}"***"`)
+	body = common.MaskSensitiveInfo(body)
+	if len(body) <= upstreamBodyLogLimit {
+		return body
+	}
+	return body[:upstreamBodyLogLimit] + "... [truncated]"
 }
 
 func ResetStatusCode(newApiErr *types.NewAPIError, statusCodeMappingStr string) {

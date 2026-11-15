@@ -148,6 +148,18 @@ describe('log cost display', () => {
   })
 
   test.each([
+    { quota: 92, expected: '$1.84e-4' },
+    { quota: 0, expected: '$0' },
+  ])(
+    'shows quota $quota in fixed e-4 notation when requested',
+    ({ quota, expected }) => {
+      renderCost({ quota, other: null, costE4: true })
+
+      expect(screen.getByText(expected)).toBeVisible()
+    }
+  )
+
+  test.each([
     { source: 'subscription', label: 'Subscription' },
     { source: 'wallet', label: 'Wallet' },
   ])(

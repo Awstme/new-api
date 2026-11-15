@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { useCallback } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -42,17 +42,26 @@ import {
   LOG_TYPE_ALL_VALUE,
   LOG_TYPE_ENUM,
 } from '../constants'
+import type { UsageLog } from '../data/schema'
 import { shouldShowBillingSource } from '../lib/billing-source'
 import { useColumnsByCategory } from '../lib/columns'
 import { parseLogOther } from '../lib/format'
 import { fetchLogsByCategory } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
+import { DetailsDialog } from './dialogs/details-dialog'
+import { ExpandedLogRows } from './expanded-log-rows'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
 import { UsageLogsMobileList } from './usage-logs-mobile-card'
-import { useLogsViewScope, type LogsViewAccess } from './usage-logs-provider'
+import {
+  useLogsViewScope,
+  useUsageLogsContext,
+  type LogsViewAccess,
+} from './usage-logs-provider'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
+
+const COST_E4_STORAGE_KEY = 'usage-logs:cost-e4'
 
 const logTypeRowTint: Record<number, string> = {
   [LOG_TYPE_ENUM.ERROR]: 'bg-rose-50/40 dark:bg-rose-950/20',
@@ -97,6 +106,26 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   } = useLogsViewScope()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const searchParams = route.useSearch()
+  const { detailsLog, setDetailsLog } = useUsageLogsContext()
+  const [costE4, setCostE4] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem(COST_E4_STORAGE_KEY) === '1'
+  })
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+  const toggleCostE4 = useCallback(() => {
+    setCostE4((current) => !current)
+  }, [])
+  useEffect(() => {
+    window.localStorage.setItem(
+      COST_E4_STORAGE_KEY,
+      costE4 ? '1' : '0'
+    )
+  }, [costE4])
+  const logView = searchParams.view ?? 'sessions'
+  let groupBy: 'request' | 'session' | undefined
+  if (logCategory === 'common' && logView !== 'rows') {
+    groupBy = logView === 'sessions' ? 'session' : 'request'
+  }
   const userId = useAuthStore((state) => state.auth.user?.id)
   const { data: showBillingSource = false } = useQuery({
     queryKey: ['usage-log-billing-source', isAdmin, userId],
@@ -160,11 +189,17 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     ],
   })
 
+  const expansionResetKey = JSON.stringify(searchParams)
+  useEffect(() => {
+    setExpandedRowId(null)
+  }, [expansionResetKey, pagination.pageIndex, groupBy, logCategory])
+
   const { data, isLoading, isFetching } = useQuery({
     queryKey: [
       'logs',
       logCategory,
       viewAccess,
+      groupBy,
       pagination.pageIndex + 1,
       pagination.pageSize,
       columnFilters,
@@ -179,6 +214,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         pageSize: pagination.pageSize,
         searchParams,
         columnFilters,
+        groupBy,
       })
 
       if (!result?.success) {
@@ -190,7 +226,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     placeholderData: (previousData, previousQuery) => {
       if (
         previousQuery?.queryKey[1] === logCategory &&
-        previousQuery.queryKey[2] === viewAccess
+        previousQuery.queryKey[2] === viewAccess &&
+        previousQuery.queryKey[3] === groupBy
       ) {
         return previousData
       }
@@ -199,11 +236,18 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   })
 
   const logs = data?.items || []
+  const toggleExpandedRow = useCallback((rowId: string) => {
+    setExpandedRowId((current) => (current === rowId ? null : rowId))
+  }, [])
   const columns = useColumnsByCategory(
     logCategory,
     isAdmin,
     isRoot,
-    showBillingSource
+    showBillingSource,
+    logCategory === 'common' ? costE4 : false,
+    logCategory === 'common' ? toggleCostE4 : undefined,
+    expandedRowId,
+    toggleExpandedRow
   )
   const isLoadingData = isLoading || (isFetching && !data)
 
@@ -228,60 +272,91 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const isCommon = logCategory === 'common'
 
   return (
-    <DataTablePage
-      table={table}
-      compactPagination={isMobile && isCommon}
-      columns={columns as ColumnDef<Record<string, unknown>>[]}
-      isLoading={isLoadingData}
-      isFetching={isFetching}
-      emptyTitle={t('No Logs Found')}
-      emptyDescription={t(
-        'No usage logs available. Logs will appear here once API calls are made.'
-      )}
-      skeletonKeyPrefix='usage-log-skeleton'
-      applyHeaderSize
-      tableClassName={cn(
-        '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
-      )}
-      mobile={
-        <UsageLogsMobileList
-          table={table}
-          isLoading={isLoadingData}
-          logCategory={logCategory}
-        />
-      }
-      toolbar={
-        isCommon ? (
-          <CommonLogsFilterBar table={table} />
-        ) : (
-          <TaskLogsFilterBar table={table} logCategory={logCategory} />
-        )
-      }
-      renderRow={(row) => {
-        const logType = (row.original as Record<string, unknown>).type as
-          | number
-          | undefined
-        let tintClass =
-          isCommon && logType != null ? (logTypeRowTint[logType] ?? '') : ''
-        if (isCommon && isAdmin) {
-          const other = parseLogOther(
-            ((row.original as Record<string, unknown>).other as string) ?? ''
-          )
-          if (other?.admin_info?.quota_saturation) {
-            tintClass = quotaSaturationRowTint
-          }
-        }
-
-        return (
-          <DataTableRow
-            key={row.id}
-            row={row}
-            className={cn('transition-colors', tintClass)}
-            getColumnClassName={getColumnClassName}
-            cellRenderColumns={table.options.columns}
+    <>
+      <DataTablePage
+        table={table}
+        compactPagination={isMobile && isCommon}
+        columns={columns as ColumnDef<Record<string, unknown>>[]}
+        isLoading={isLoadingData}
+        isFetching={isFetching}
+        emptyTitle={t('No Logs Found')}
+        emptyDescription={t(
+          'No usage logs available. Logs will appear here once API calls are made.'
+        )}
+        skeletonKeyPrefix='usage-log-skeleton'
+        applyHeaderSize
+        tableClassName={cn(
+          '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
+        )}
+        mobile={
+          <UsageLogsMobileList
+            table={table}
+            isLoading={isLoadingData}
+            logCategory={logCategory}
           />
-        )
-      }}
-    />
+        }
+        toolbar={
+          isCommon ? (
+            <CommonLogsFilterBar table={table} />
+          ) : (
+            <TaskLogsFilterBar table={table} logCategory={logCategory} />
+          )
+        }
+        renderRow={(row) => {
+          const logType = (row.original as Record<string, unknown>).type as
+            | number
+            | undefined
+          let tintClass =
+            isCommon && logType != null ? (logTypeRowTint[logType] ?? '') : ''
+          if (isCommon && isAdmin) {
+            const other = parseLogOther(
+              ((row.original as Record<string, unknown>).other as string) ?? ''
+            )
+            if (other?.admin_info?.quota_saturation) {
+              tintClass = quotaSaturationRowTint
+            }
+          }
+
+          const expanded = expandedRowId === row.id
+          return (
+            <Fragment key={row.id}>
+              <DataTableRow
+                row={row}
+                className={cn('cursor-pointer transition-colors', tintClass)}
+                title={t('Click to view full details')}
+                getColumnClassName={getColumnClassName}
+                cellRenderColumns={table.options.columns}
+                onClick={(event) => {
+                  const target = event.target as HTMLElement
+                  if (
+                    target.closest('button, a, input, textarea, [role="button"]')
+                  ) {
+                    return
+                  }
+                  setDetailsLog(row.original as UsageLog)
+                }}
+              />
+              {expanded && (
+                <ExpandedLogRows
+                  log={row.original as UsageLog}
+                  colSpan={table.getVisibleLeafColumns().length}
+                />
+              )}
+            </Fragment>
+          )
+        }}
+      />
+      {detailsLog != null && (
+        <DetailsDialog
+          log={detailsLog}
+          isAdmin={isAdmin}
+          isRoot={isRoot}
+          open
+          onOpenChange={(open) => {
+            if (!open) setDetailsLog(null)
+          }}
+        />
+      )}
+    </>
   )
 }

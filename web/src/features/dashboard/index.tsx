@@ -37,6 +37,8 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
+import { AdminHealthPanel } from './components/models/admin-health-panel'
+import { FreeQuotaPanel } from './components/models/free-quota-panel'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
@@ -46,6 +48,7 @@ import {
   getSavedGranularity,
   saveChartPreferences,
 } from './lib'
+import { isAdminOnlyDashboardSection } from './access'
 import {
   type DashboardSectionId,
   DASHBOARD_DEFAULT_SECTION,
@@ -253,7 +256,9 @@ export function Dashboard() {
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
-        (section) => section !== 'overview' && (section !== 'users' || isAdmin)
+        (section) =>
+          section !== 'overview' &&
+          (isAdmin || !isAdminOnlyDashboardSection(section))
       ),
     [isAdmin]
   )
@@ -322,7 +327,10 @@ export function Dashboard() {
     ) : null
   const sectionActions = modelActions ?? flowActions
 
-  if (activeSection === 'overview') {
+  if (
+    activeSection === 'overview' ||
+    (!isAdmin && isAdminOnlyDashboardSection(activeSection))
+  ) {
     return <OverviewDashboard />
   }
 
@@ -353,47 +361,61 @@ export function Dashboard() {
           </div>
           {activeSection === 'models' && (
             <>
-              <FadeIn>
-                <Suspense fallback={<LogStatCardsFallback />}>
-                  <LazyLogStatCards
-                    filters={modelFilters}
-                    onDataUpdate={handleDataUpdate}
-                  />
-                </Suspense>
-              </FadeIn>
               {isAdmin && (
-                <FadeIn delay={0.05}>
-                  <Suspense fallback={<PerformanceOverviewFallback />}>
-                    <LazyPerformanceOverview />
-                  </Suspense>
+                <FadeIn>
+                  <AdminHealthPanel filters={modelFilters} />
                 </FadeIn>
               )}
-              <FadeIn delay={0.1}>
-                <Suspense fallback={<ModelChartsFallback />}>
-                  <LazyConsumptionDistributionChart
-                    data={modelData}
-                    loading={dataLoading}
-                    defaultChartType={
-                      chartPreferences.consumptionDistributionChart
-                    }
-                    timeGranularity={
-                      modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
-                    }
-                  />
-                </Suspense>
-              </FadeIn>
-              <FadeIn delay={0.15}>
-                <Suspense fallback={<ModelChartsFallback />}>
-                  <LazyModelCharts
-                    data={modelData}
-                    loading={dataLoading}
-                    defaultChartTab={chartPreferences.modelAnalyticsChart}
-                    timeGranularity={
-                      modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
-                    }
-                  />
-                </Suspense>
-              </FadeIn>
+              <>
+                  <FadeIn>
+                    <Suspense fallback={<LogStatCardsFallback />}>
+                      <LazyLogStatCards
+                        filters={modelFilters}
+                        onDataUpdate={handleDataUpdate}
+                      />
+                    </Suspense>
+                  </FadeIn>
+                  {isAdmin && (
+                    <FadeIn delay={0.03}>
+                      <FreeQuotaPanel filters={modelFilters} />
+                    </FadeIn>
+                  )}
+                  {isAdmin && (
+                    <FadeIn delay={0.05}>
+                      <Suspense fallback={<PerformanceOverviewFallback />}>
+                        <LazyPerformanceOverview />
+                      </Suspense>
+                    </FadeIn>
+                  )}
+                  <FadeIn delay={0.1}>
+                    <Suspense fallback={<ModelChartsFallback />}>
+                      <LazyConsumptionDistributionChart
+                        data={modelData}
+                        loading={dataLoading}
+                        defaultChartType={
+                          chartPreferences.consumptionDistributionChart
+                        }
+                        timeGranularity={
+                          modelFilters.time_granularity ||
+                          DEFAULT_TIME_GRANULARITY
+                        }
+                      />
+                    </Suspense>
+                  </FadeIn>
+                  <FadeIn delay={0.15}>
+                    <Suspense fallback={<ModelChartsFallback />}>
+                      <LazyModelCharts
+                        data={modelData}
+                        loading={dataLoading}
+                        defaultChartTab={chartPreferences.modelAnalyticsChart}
+                        timeGranularity={
+                          modelFilters.time_granularity ||
+                          DEFAULT_TIME_GRANULARITY
+                        }
+                      />
+                    </Suspense>
+                  </FadeIn>
+              </>
             </>
           )}
           {activeSection === 'users' && (

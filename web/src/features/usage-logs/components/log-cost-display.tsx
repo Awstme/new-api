@@ -32,7 +32,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { formatLogQuota } from '@/lib/format'
+import { getCurrencyDisplay } from '@/lib/currency'
+import { formatLogQuota, quotaUnitsToDollars } from '@/lib/format'
 
 import { hasToolSurcharge } from '../lib/format'
 import type { LogOtherData } from '../types'
@@ -41,6 +42,7 @@ interface LogCostDisplayProps {
   quota: number
   other: LogOtherData | null
   showBillingSource?: boolean
+  costE4?: boolean
 }
 
 function ToolSurchargeMarker() {
@@ -85,6 +87,21 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
   const quota = isSubscription
     ? (props.other?.subscription_consumed ?? props.quota)
     : props.quota
+  const { meta } = getCurrencyDisplay()
+  let displayCost = formatLogQuota(quota)
+  if (props.costE4 && meta.kind !== 'tokens') {
+    const amount = quotaUnitsToDollars(quota)
+    if (amount === 0) {
+      displayCost = `${meta.symbol}0`
+    } else {
+      const scaled = amount * 1e4
+      const digits = Math.abs(scaled) >= 1 ? 2 : 4
+      const text = new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: digits,
+      }).format(scaled)
+      displayCost = `${meta.symbol}${text}e-4`
+    }
+  }
   let source: string | undefined
 
   // A log billed to a subscription always names its funding source: that
@@ -132,7 +149,7 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
               <TooltipContent>{source}</TooltipContent>
             </Tooltip>
           ) : null}
-          <span className='whitespace-nowrap'>{formatLogQuota(quota)}</span>
+          <span className='whitespace-nowrap'>{displayCost}</span>
         </StatusBadge>
         {showToolSurcharge ? <ToolSurchargeMarker /> : null}
       </div>

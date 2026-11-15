@@ -94,6 +94,17 @@ function sidebarFor(admin?: object, user?: object, canConfigure = true) {
   return result
 }
 
+describe('dashboard sidebar visibility', () => {
+  it('keeps the data dashboard entry for normal users', () => {
+    const { result } = sidebarFor()
+    const titles = result.current
+      .flatMap((group) => group.items)
+      .map((item) => item.title)
+    expect(titles).toContain('Overview')
+    expect(titles).toContain('Dashboard')
+  })
+})
+
 describe('security sidebar visibility', () => {
   it('old configurations show Security & Access immediately after Profile and keep API Keys', () => {
     const { result } = sidebarFor(
