@@ -23,7 +23,6 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
-import { useFreeQuotaStats } from '@/features/dashboard/hooks/use-free-quota-stats'
 import {
   buildQueryParams,
   calculateDashboardStats,
@@ -60,7 +59,7 @@ function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
 }
 
 export function LogStatCards(props: LogStatCardsProps) {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   const statCardsConfig = useModelStatCardsConfig()
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
@@ -73,9 +72,6 @@ export function LogStatCards(props: LogStatCardsProps) {
   const [timeRangeMinutes, setTimeRangeMinutes] = useState(0)
 
   const { filters, onDataUpdate } = props
-  const showFreeQuota = isAdmin && !filters?.username
-  const freeQuotaStats = useFreeQuotaStats(filters, showFreeQuota).stats
-  const freeQuota = freeQuotaStats?.free_total ?? freeQuotaStats?.total ?? 0
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -127,16 +123,12 @@ export function LogStatCards(props: LogStatCardsProps) {
 
   const items = statCardsConfig.map((config) => {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
-    const quotaValue =
-      config.key === 'quota' && showFreeQuota && freeQuotaStats
-        ? freeQuotaStats.consumption_total
-        : rawValue
     const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
     const formatted =
       config.key === 'quota'
         ? {
-            displayValue: formatQuota(quotaValue),
-            fullValue: formatQuota(quotaValue),
+            displayValue: formatQuota(rawValue),
+            fullValue: formatQuota(rawValue),
           }
         : formatStatNumber(rawValue, locale)
 
@@ -145,10 +137,7 @@ export function LogStatCards(props: LogStatCardsProps) {
       title: config.title,
       value: formatted.displayValue,
       fullValue: formatted.fullValue,
-      desc:
-        config.key === 'quota' && showFreeQuota
-          ? `${t('Free quota used')}: ${formatQuota(freeQuota)}`
-          : config.description,
+      desc: config.description,
       icon: config.icon,
       iconTone: config.iconTone,
     }

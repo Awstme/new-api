@@ -35,10 +35,9 @@ import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { isAdminOnlyDashboardSection } from './access'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
-import { AdminHealthPanel } from './components/models/admin-health-panel'
-import { FreeQuotaPanel } from './components/models/free-quota-panel'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
@@ -48,7 +47,6 @@ import {
   getSavedGranularity,
   saveChartPreferences,
 } from './lib'
-import { isAdminOnlyDashboardSection } from './access'
 import {
   type DashboardSectionId,
   DASHBOARD_DEFAULT_SECTION,
@@ -115,6 +113,12 @@ const LazyUserCharts = lazy(() =>
 const LazyFlowCharts = lazy(() =>
   import('./components/flow/flow-charts').then((m) => ({
     default: m.FlowCharts,
+  }))
+)
+
+const LazyOpsDashboard = lazy(() =>
+  import('@/features/ops-dashboard').then((m) => ({
+    default: m.OpsDashboard,
   }))
 )
 
@@ -196,6 +200,9 @@ const SECTION_META: Record<DashboardSectionId, { titleKey: string }> = {
   },
   users: {
     titleKey: 'User Analytics',
+  },
+  ops: {
+    titleKey: 'Operations',
   },
 }
 
@@ -325,7 +332,16 @@ export function Dashboard() {
         />
       </>
     ) : null
-  const sectionActions = modelActions ?? flowActions
+  const opsActions =
+    activeSection === 'ops' ? (
+      <ModelsFilter
+        preferences={chartPreferences}
+        currentFilters={modelFilters}
+        onFilterChange={handleFilterChange}
+        onReset={handleResetFilters}
+      />
+    ) : null
+  const sectionActions = modelActions ?? flowActions ?? opsActions
 
   if (
     activeSection === 'overview' ||
@@ -361,62 +377,55 @@ export function Dashboard() {
           </div>
           {activeSection === 'models' && (
             <>
+              <FadeIn>
+                <Suspense fallback={<LogStatCardsFallback />}>
+                  <LazyLogStatCards
+                    filters={modelFilters}
+                    onDataUpdate={handleDataUpdate}
+                  />
+                </Suspense>
+              </FadeIn>
               {isAdmin && (
-                <FadeIn>
-                  <AdminHealthPanel filters={modelFilters} />
+                <FadeIn delay={0.05}>
+                  <Suspense fallback={<PerformanceOverviewFallback />}>
+                    <LazyPerformanceOverview />
+                  </Suspense>
                 </FadeIn>
               )}
-              <>
-                  <FadeIn>
-                    <Suspense fallback={<LogStatCardsFallback />}>
-                      <LazyLogStatCards
-                        filters={modelFilters}
-                        onDataUpdate={handleDataUpdate}
-                      />
-                    </Suspense>
-                  </FadeIn>
-                  {isAdmin && (
-                    <FadeIn delay={0.03}>
-                      <FreeQuotaPanel filters={modelFilters} />
-                    </FadeIn>
-                  )}
-                  {isAdmin && (
-                    <FadeIn delay={0.05}>
-                      <Suspense fallback={<PerformanceOverviewFallback />}>
-                        <LazyPerformanceOverview />
-                      </Suspense>
-                    </FadeIn>
-                  )}
-                  <FadeIn delay={0.1}>
-                    <Suspense fallback={<ModelChartsFallback />}>
-                      <LazyConsumptionDistributionChart
-                        data={modelData}
-                        loading={dataLoading}
-                        defaultChartType={
-                          chartPreferences.consumptionDistributionChart
-                        }
-                        timeGranularity={
-                          modelFilters.time_granularity ||
-                          DEFAULT_TIME_GRANULARITY
-                        }
-                      />
-                    </Suspense>
-                  </FadeIn>
-                  <FadeIn delay={0.15}>
-                    <Suspense fallback={<ModelChartsFallback />}>
-                      <LazyModelCharts
-                        data={modelData}
-                        loading={dataLoading}
-                        defaultChartTab={chartPreferences.modelAnalyticsChart}
-                        timeGranularity={
-                          modelFilters.time_granularity ||
-                          DEFAULT_TIME_GRANULARITY
-                        }
-                      />
-                    </Suspense>
-                  </FadeIn>
-              </>
+              <FadeIn delay={0.1}>
+                <Suspense fallback={<ModelChartsFallback />}>
+                  <LazyConsumptionDistributionChart
+                    data={modelData}
+                    loading={dataLoading}
+                    defaultChartType={
+                      chartPreferences.consumptionDistributionChart
+                    }
+                    timeGranularity={
+                      modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
+                    }
+                  />
+                </Suspense>
+              </FadeIn>
+              <FadeIn delay={0.15}>
+                <Suspense fallback={<ModelChartsFallback />}>
+                  <LazyModelCharts
+                    data={modelData}
+                    loading={dataLoading}
+                    defaultChartTab={chartPreferences.modelAnalyticsChart}
+                    timeGranularity={
+                      modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
+                    }
+                  />
+                </Suspense>
+              </FadeIn>
             </>
+          )}
+          {activeSection === 'ops' && (
+            <FadeIn>
+              <Suspense fallback={<ModelChartsFallback />}>
+                <LazyOpsDashboard filters={modelFilters} />
+              </Suspense>
+            </FadeIn>
           )}
           {activeSection === 'users' && (
             <FadeIn>

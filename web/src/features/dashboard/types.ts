@@ -193,90 +193,9 @@ export interface DashboardFilters {
   username?: string
 }
 
-export interface DashboardLogHealthBucket {
-  t: number
-  requests: number
-  success: number
-  failed: number
-  retried: number
-  quota: number
-  tokens: number
-  failed_4xx: number
-  failed_5xx: number
-  interrupted: number
-  p95: number
-}
-
-export interface DashboardLogHealthSummary {
-  quota: number
-  requests: number
-  success_requests: number
-  failed_requests: number
-  failed_4xx: number
-  failed_5xx: number
-  interrupted_requests: number
-  status_codes: Record<string, number>
-  retried_requests: number
-  error_rows: number
-  error_rate: number
-  tokens: number
-  p50: number
-  p95: number
-  p99: number
-  avg_use_time: number
-  series: DashboardLogHealthBucket[]
-}
-
-export interface FreeQuotaUser {
-  user_id: number
-  username: string
-  granted: number
-  used: number
-  grant_count: number
-  last_used_at: number
-  method: 'exact' | 'log_text' | 'config' | 'mixed' | string
-}
-
-export interface FreeQuotaSource {
-  key: string
-  kind: 'free' | 'paid' | string
-  quota: number
-  granted: number
-  count: number
-  grant_count: number
-  method: 'exact' | 'log_text' | 'config' | 'mixed' | string
-  users: FreeQuotaUser[]
-}
-
-export interface OnlineTopupRecord {
-  user_id: number
-  username: string
-  created_at: number
-  quota: number
-  amount: number
-  payment_method: string
-  request_id: string
-}
-
-export interface FreeQuotaStats {
-  total: number
-  free_total: number
-  consumption_total: number
-  online_topup_count: number
-  online_topup_quota: number
-  online_topup_amount: number
-  online_topup_records: OnlineTopupRecord[]
-  granted: number
-  sources: FreeQuotaSource[]
-}
-
 export type ConsumptionDistributionChartType = 'bar' | 'area'
 
-export type ModelAnalyticsChartTab =
-  | 'trend'
-  | 'costTrend'
-  | 'proportion'
-  | 'top'
+export type ModelAnalyticsChartTab = 'trend' | 'proportion' | 'top'
 
 export interface DashboardChartPreferences {
   consumptionDistributionChart: ConsumptionDistributionChartType

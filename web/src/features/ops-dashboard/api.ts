@@ -16,19 +16,31 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export const FREE_QUOTA_SOURCE_LABELS: Record<string, string> = {
-  new_user: 'New user bonus',
-  invitee: 'Invitee bonus',
-  inviter: 'Inviter bonus',
-  redemption: 'Redemption codes',
-  checkin: 'Check-in rewards',
-  admin_add: 'Admin grants',
-  paid: 'Regular quota',
+import { api } from '@/lib/api'
+
+import type { DashboardLogHealthSummary, FreeQuotaStats } from './types'
+
+export async function getLogHealthSummary(params: {
+  start_timestamp: number
+  end_timestamp: number
+  username?: string
+}) {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: DashboardLogHealthSummary
+  }>('/api/log/stat', { params })
+  return res.data
 }
 
-export const FREE_QUOTA_METHOD_LABELS: Record<string, string> = {
-  exact: 'Actual',
-  log_text: 'From log text',
-  config: 'Estimated',
-  mixed: 'Mixed',
+export async function getFreeQuotaStats(params: {
+  start_timestamp: number
+  end_timestamp: number
+}) {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: FreeQuotaStats
+  }>('/api/data/free-quota', { params })
+  return res.data
 }

@@ -19,17 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { getUserQuotaDates } from '@/features/dashboard/api'
+import { buildQueryParams, getDefaultDays } from '@/features/dashboard/lib'
+import type {
+  DashboardFilters,
+  QuotaDataItem,
+} from '@/features/dashboard/types'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { computeTimeRange } from '@/lib/time'
 
-import { getFreeQuotaStats } from '../api'
-import { getDefaultDays } from '../lib'
-import type { DashboardFilters, FreeQuotaStats } from '../types'
-
-export function useFreeQuotaStats(
-  filters?: DashboardFilters,
-  enabled = true
-) {
+export function useOpsModelQuota(filters?: DashboardFilters) {
   const timeRange = useMemo(
     () =>
       computeTimeRange(
@@ -41,25 +40,28 @@ export function useFreeQuotaStats(
   )
   const query = useQuery({
     queryKey: [
-      'dashboard',
-      'free-quota',
+      'ops',
+      'model-quota',
       timeRange.start_timestamp,
       timeRange.end_timestamp,
+      filters?.username,
     ],
     queryFn: async () =>
       requireServerSuccess(
-        await getFreeQuotaStats({
-          start_timestamp: timeRange.start_timestamp,
-          end_timestamp: timeRange.end_timestamp,
-        })
+        await getUserQuotaDates(
+          buildQueryParams(timeRange, {
+            time_granularity: filters?.time_granularity,
+            username: filters?.username,
+          }),
+          true
+        )
       ),
-    enabled,
     staleTime: 60 * 1000,
     retry: false,
   })
   return {
     ...query,
-    stats: query.data?.data as FreeQuotaStats | undefined,
+    data: (query.data?.data ?? []) as QuotaDataItem[],
     timeRange,
   }
 }

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-const ADMIN_ONLY_DASHBOARD_SECTIONS = new Set<string>(['users'])
+const ADMIN_ONLY_DASHBOARD_SECTIONS = new Set<string>(['users', 'ops'])
 
 export function isAdminOnlyDashboardSection(section: string) {
   return ADMIN_ONLY_DASHBOARD_SECTIONS.has(section)

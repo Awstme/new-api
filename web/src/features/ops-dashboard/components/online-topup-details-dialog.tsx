@@ -30,7 +30,7 @@ import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 
-import type { OnlineTopupRecord } from '../../types'
+import type { OnlineTopupRecord } from '../types'
 
 interface OnlineTopupDetailsDialogProps {
   open: boolean
@@ -188,10 +188,7 @@ export function OnlineTopupDetailsDialog(props: OnlineTopupDetailsDialogProps) {
                 {props.records.map((record, index) => {
                   const key = recordKeys[index]
                   return (
-                    <tr
-                      key={key}
-                      className='border-border/60 border-t'
-                    >
+                    <tr key={key} className='border-border/60 border-t'>
                       <td className='px-3 py-2'>
                         <Checkbox
                           checked={selected.has(key)}
@@ -251,10 +248,12 @@ export function OnlineTopupDetailsDialog(props: OnlineTopupDetailsDialogProps) {
                     {t('Total')}
                   </td>
                   <td className='px-3 py-2 text-right font-mono font-semibold tabular-nums'>
-                    {formatLocalCurrencyAmount(props.records.reduce(
-                      (total, record) => total + record.amount,
-                      0
-                    ))}
+                    {formatLocalCurrencyAmount(
+                      props.records.reduce(
+                        (total, record) => total + record.amount,
+                        0
+                      )
+                    )}
                   </td>
                   <td className='px-3 py-2 text-right font-mono font-semibold tabular-nums'>
                     {formatQuota(
