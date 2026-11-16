@@ -30,6 +30,12 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
+import { getDefaultDays } from '@/features/dashboard/lib'
+import type {
+  DashboardFilters,
+  QuotaDataItem,
+} from '@/features/dashboard/types'
 import { getCurrencyDisplay } from '@/lib/currency'
 import {
   formatCompactNumber,
@@ -42,17 +48,9 @@ import { requireServerSuccess } from '@/lib/server-error-message'
 import { computeTimeRange, formatChartTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
 
-import {
-  getLogHealthSummary,
-  getUserQuotaDataByUsers,
-  getUserQuotaDates,
-} from '../../api'
-import { buildQueryParams, getDefaultDays } from '../../lib'
-import type {
-  DashboardFilters,
-  DashboardLogHealthSummary,
-  QuotaDataItem,
-} from '../../types'
+import { getLogHealthSummary } from '../api'
+import { useOpsModelQuota } from '../hooks/use-ops-model-quota'
+import type { DashboardLogHealthSummary } from '../types'
 
 type HealthChartMode =
   | 'cost'
@@ -101,9 +99,7 @@ function topCostItems(
     item.count += Number(row.count) || 0
     values.set(label, item)
   }
-  return [...values.values()]
-    .sort((a, b) => b.cost - a.cost)
-    .slice(0, 5)
+  return [...values.values()].sort((a, b) => b.cost - a.cost).slice(0, 5)
 }
 
 function CostRankItems(props: {
@@ -200,8 +196,7 @@ function HealthTrendChart(props: {
     props.mode === 'p95'
       ? Math.max(1, Math.max(...values) * 1.15)
       : Math.max(1, ...values)
-  const y = (value: number) =>
-    margin.top + innerH - (value / maxValue) * innerH
+  const y = (value: number) => margin.top + innerH - (value / maxValue) * innerH
 
   const formatAxisValue = (value: number) => {
     if (props.mode === 'cost') {
@@ -466,7 +461,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
   const duration = timeRange.end_timestamp - timeRange.start_timestamp
   const healthQuery = useQuery({
     queryKey: [
-      'dashboard',
+      'ops',
       'decision-health',
       timeRange.start_timestamp,
       timeRange.end_timestamp,
@@ -503,32 +498,10 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
     staleTime: 60 * 1000,
     retry: false,
   })
-  const modelQuery = useQuery({
-    queryKey: [
-      'dashboard',
-      'decision-models',
-      timeRange.start_timestamp,
-      timeRange.end_timestamp,
-      props.filters?.username,
-      props.filters?.exclude_admins === true,
-    ],
-    queryFn: async () =>
-      requireServerSuccess(
-        await getUserQuotaDates(
-          buildQueryParams(timeRange, {
-            time_granularity: props.filters?.time_granularity,
-            username: props.filters?.username,
-            exclude_admins: props.filters?.exclude_admins,
-          }),
-          true
-        )
-      ),
-    staleTime: 60 * 1000,
-    retry: false,
-  })
+  const modelQuota = useOpsModelQuota(props.filters)
   const userQuery = useQuery({
     queryKey: [
-      'dashboard',
+      'ops',
       'decision-users',
       timeRange.start_timestamp,
       timeRange.end_timestamp,
@@ -562,8 +535,8 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
   const quota = current?.quota ?? 0
   const statusCodes = current?.status_codes ?? {}
   const topModels = useMemo(
-    () => topCostItems(modelQuery.data?.data ?? [], 'model_name'),
-    [modelQuery.data]
+    () => topCostItems(modelQuota.data, 'model_name'),
+    [modelQuota.data]
   )
   const topUsers = useMemo(
     () => topCostItems(userQuery.data?.data ?? [], 'username'),
@@ -761,7 +734,9 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
         <div className='grid gap-3 border-t px-3 py-3 sm:px-4 lg:grid-cols-[minmax(0,1fr)_280px]'>
           <div className='min-w-0'>
             <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-              <div className='text-xs font-semibold'>{t('Operations trend')}</div>
+              <div className='text-xs font-semibold'>
+                {t('Operations trend')}
+              </div>
               <div className='bg-muted/60 inline-flex h-7 flex-wrap rounded-lg border p-0.5'>
                 {(
                   [
@@ -832,7 +807,9 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
           <Activity />
         </IconBadge>
         <div className='min-w-0'>
-          <div className='text-sm font-semibold'>{t('Operations overview')}</div>
+          <div className='text-sm font-semibold'>
+            {t('Operations overview')}
+          </div>
           <div className='text-muted-foreground text-xs'>
             {t('Cost, traffic and site health')}
           </div>

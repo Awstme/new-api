@@ -170,7 +170,7 @@ export function CommonLogsStats() {
         accent='bg-sky-500/70'
       />
       <StatBadge
-        label={t('Token')}
+        label={t('Tokens')}
         value={formatCompactNumber(stats?.tokens ?? 0)}
         accent='bg-slate-400/70'
         title={`${t('Input')}: ${formatCompactNumber(stats?.prompt_tokens ?? 0)} · ${t('Output')}: ${formatCompactNumber(stats?.completion_tokens ?? 0)}`}

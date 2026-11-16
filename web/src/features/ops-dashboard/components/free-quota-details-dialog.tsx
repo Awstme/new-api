@@ -29,11 +29,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 
-import type {
-  FreeQuotaSource,
-  FreeQuotaStats,
-  FreeQuotaUser,
-} from '../../types'
+import type { FreeQuotaSource, FreeQuotaStats, FreeQuotaUser } from '../types'
 import { FreeQuotaMethodBadge } from './free-quota-badge'
 import {
   FREE_QUOTA_METHOD_LABELS,
@@ -103,7 +99,9 @@ export function FreeQuotaDetailsDialog(props: FreeQuotaDetailsDialogProps) {
 
   const selectedTotal = allUsers.reduce(
     (total, { source, user }) =>
-      selected.has(userKey(source.key, user.user_id)) ? total + user.used : total,
+      selected.has(userKey(source.key, user.user_id))
+        ? total + user.used
+        : total,
     0
   )
   const visibleUsedTotal = visibleSources.reduce(
@@ -302,9 +300,7 @@ export function FreeQuotaDetailsDialog(props: FreeQuotaDetailsDialogProps) {
             )}
           </p>
           <p className='text-muted-foreground/70'>
-            {t(
-              'Normal quota is total consumption minus consumed free quota.'
-            )}
+            {t('Normal quota is total consumption minus consumed free quota.')}
           </p>
         </div>
       </>
@@ -345,9 +341,7 @@ function FreeQuotaSourceRows(props: FreeQuotaSourceRowsProps) {
   const userKeys = props.source.users.map((user) =>
     userKey(props.source.key, user.user_id)
   )
-  const selectedCount = userKeys.filter((key) =>
-    props.selected.has(key)
-  ).length
+  const selectedCount = userKeys.filter((key) => props.selected.has(key)).length
   const allSelected = userKeys.length > 0 && selectedCount === userKeys.length
   const someSelected = selectedCount > 0 && !allSelected
 
@@ -358,7 +352,9 @@ function FreeQuotaSourceRows(props: FreeQuotaSourceRowsProps) {
           <Checkbox
             checked={allSelected}
             indeterminate={someSelected}
-            aria-label={t(FREE_QUOTA_SOURCE_LABELS[props.source.key] ?? props.source.key)}
+            aria-label={t(
+              FREE_QUOTA_SOURCE_LABELS[props.source.key] ?? props.source.key
+            )}
             onCheckedChange={(checked) =>
               props.onToggleUsers(userKeys, checked === true)
             }

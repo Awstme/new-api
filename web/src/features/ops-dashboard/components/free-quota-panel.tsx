@@ -23,11 +23,11 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { DashboardFilters } from '@/features/dashboard/types'
 import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
 
-import { useFreeQuotaStats } from '../../hooks/use-free-quota-stats'
-import type { DashboardFilters } from '../../types'
+import { useFreeQuotaStats } from '../hooks/use-free-quota-stats'
 import { FreeQuotaMethodBadge } from './free-quota-badge'
 import { FreeQuotaDetailsDialog } from './free-quota-details-dialog'
 import { FREE_QUOTA_SOURCE_LABELS } from './free-quota-labels'
@@ -154,8 +154,7 @@ export function FreeQuotaPanel(props: FreeQuotaPanelProps) {
           )}
           {(stats?.online_topup_count ?? 0) > 0 && (
             <span>
-              {t('Credited')}{' '}
-              {formatQuota(stats?.online_topup_quota ?? 0)}
+              {t('Credited')} {formatQuota(stats?.online_topup_quota ?? 0)}
             </span>
           )}
           <Button
@@ -179,9 +178,7 @@ export function FreeQuotaPanel(props: FreeQuotaPanelProps) {
             )}
           </p>
           <p>
-            {t(
-              'Normal quota is total consumption minus consumed free quota.'
-            )}
+            {t('Normal quota is total consumption minus consumed free quota.')}
           </p>
         </div>
       )}

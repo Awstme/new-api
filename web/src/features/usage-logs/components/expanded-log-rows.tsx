@@ -37,7 +37,7 @@ import { getLogTypeConfig } from '../lib/utils'
 function RawLogsTable(props: { rows: UsageLog[]; showRequestId: boolean }) {
   const { t } = useTranslation()
   return (
-    <div className='max-h-[360px] overflow-auto rounded-md border bg-background'>
+    <div className='bg-background max-h-[360px] overflow-auto rounded-md border'>
       <table className='w-full min-w-[840px] text-[11px]'>
         <thead className='bg-background sticky top-0 z-10'>
           <tr className='text-muted-foreground border-b text-left'>
@@ -48,7 +48,9 @@ function RawLogsTable(props: { rows: UsageLog[]; showRequestId: boolean }) {
             <th className='px-2 py-1.5 font-medium'>{t('Type')}</th>
             <th className='px-2 py-1.5 font-medium'>{t('Channel')}</th>
             <th className='px-2 py-1.5 font-medium'>{t('Status')}</th>
-            <th className='px-2 py-1.5 text-right font-medium'>{t('Token')}</th>
+            <th className='px-2 py-1.5 text-right font-medium'>
+              {t('Tokens', { context: 'usage' })}
+            </th>
             <th className='px-2 py-1.5 text-right font-medium'>{t('Cost')}</th>
             <th className='px-2 py-1.5 text-right font-medium'>
               {t('Timing')}

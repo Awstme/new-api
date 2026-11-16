@@ -19,9 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 
 import type {
-  DashboardLogHealthSummary,
   FlowQuotaDataItem,
-  FreeQuotaStats,
   QuotaDataItem,
   UptimeGroupResult,
 } from './types'
@@ -67,33 +65,6 @@ export async function getUserQuotaDataByUsers(params: {
     '/api/data/users',
     { params }
   )
-  return res.data
-}
-
-export async function getLogHealthSummary(params: {
-  start_timestamp: number
-  end_timestamp: number
-  username?: string
-  exclude_admins?: boolean
-}) {
-  const res = await api.get<{
-    success: boolean
-    message?: string
-    data?: DashboardLogHealthSummary
-  }>('/api/log/stat', { params })
-  return res.data
-}
-
-export async function getFreeQuotaStats(params: {
-  start_timestamp: number
-  end_timestamp: number
-  exclude_admins?: boolean
-}) {
-  const res = await api.get<{
-    success: boolean
-    message?: string
-    data?: FreeQuotaStats
-  }>('/api/data/free-quota', { params })
   return res.data
 }
 

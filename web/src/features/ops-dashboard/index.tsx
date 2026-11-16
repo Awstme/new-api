@@ -16,19 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export const FREE_QUOTA_SOURCE_LABELS: Record<string, string> = {
-  new_user: 'New user bonus',
-  invitee: 'Invitee bonus',
-  inviter: 'Inviter bonus',
-  redemption: 'Redemption codes',
-  checkin: 'Check-in rewards',
-  admin_add: 'Admin grants',
-  paid: 'Regular quota',
+import type { DashboardFilters } from '@/features/dashboard/types'
+
+import { AdminHealthPanel } from './components/admin-health-panel'
+import { FreeQuotaPanel } from './components/free-quota-panel'
+
+interface OpsDashboardProps {
+  filters?: DashboardFilters
 }
 
-export const FREE_QUOTA_METHOD_LABELS: Record<string, string> = {
-  exact: 'Actual',
-  log_text: 'From log text',
-  config: 'Estimated',
-  mixed: 'Mixed',
+export function OpsDashboard(props: OpsDashboardProps) {
+  return (
+    <div className='space-y-3 sm:space-y-4'>
+      <AdminHealthPanel filters={props.filters} />
+      <FreeQuotaPanel filters={props.filters} />
+    </div>
+  )
 }

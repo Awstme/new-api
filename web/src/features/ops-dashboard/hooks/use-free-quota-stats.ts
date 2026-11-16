@@ -19,17 +19,15 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { getDefaultDays } from '@/features/dashboard/lib'
+import type { DashboardFilters } from '@/features/dashboard/types'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { computeTimeRange } from '@/lib/time'
 
 import { getFreeQuotaStats } from '../api'
-import { getDefaultDays } from '../lib'
-import type { DashboardFilters, FreeQuotaStats } from '../types'
+import type { FreeQuotaStats } from '../types'
 
-export function useFreeQuotaStats(
-  filters?: DashboardFilters,
-  enabled = true
-) {
+export function useFreeQuotaStats(filters?: DashboardFilters, enabled = true) {
   const timeRange = useMemo(
     () =>
       computeTimeRange(
