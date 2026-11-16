@@ -64,3 +64,21 @@ func TestSearchUsersSortsBeforePagination(t *testing.T) {
 	assert.Equal(t, int64(42), total)
 	assert.Equal(t, []int{21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40}, collectUserIDs(users))
 }
+
+func TestGetAdminUserIDsIncludesSoftDeletedAdmins(t *testing.T) {
+	truncateTables(t)
+	users := []*User{
+		{Username: "common", Password: "password123", Role: common.RoleCommonUser, AffCode: "common-aff"},
+		{Username: "admin", Password: "password123", Role: common.RoleAdminUser, AffCode: "admin-aff"},
+		{Username: "root", Password: "password123", Role: common.RoleRootUser, AffCode: "root-aff"},
+		{Username: "deleted-admin", Password: "password123", Role: common.RoleAdminUser, AffCode: "deleted-admin-aff"},
+	}
+	for _, user := range users {
+		require.NoError(t, DB.Create(user).Error)
+	}
+	require.NoError(t, DB.Delete(users[3]).Error)
+
+	ids, err := GetAdminUserIDs()
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []int{users[1].Id, users[2].Id, users[3].Id}, ids)
+}

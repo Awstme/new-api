@@ -434,9 +434,12 @@ export function useCommonLogsColumns(
                   )}
                 >
                   {t('Session')} · {sessionCount}
-                  {sessionErrorCount > 0
-                    ? ` · ${sessionErrorCount} ${t('errors')}`
-                    : ''}
+                  {sessionErrorCount > 0 && (
+                    <span className='text-red-600 dark:text-red-400'>
+                      {' '}
+                      · {sessionErrorCount} {t('errors')}
+                    </span>
+                  )}
                 </span>
               )}
             </div>

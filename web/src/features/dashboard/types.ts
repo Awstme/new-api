@@ -191,6 +191,7 @@ export interface DashboardFilters {
   end_timestamp?: Date
   time_granularity?: TimeGranularity
   username?: string
+  exclude_admins?: boolean
 }
 
 export interface DashboardLogHealthBucket {
@@ -291,6 +292,7 @@ export interface UserChartsFilters {
   timeGranularity: TimeGranularity
   selectedRange: number
   topUserLimit: number
+  excludeAdmins: boolean
 }
 
 // ============================================================================

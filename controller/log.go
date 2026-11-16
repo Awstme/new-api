@@ -261,7 +261,14 @@ func GetLogByKey(c *gin.Context) {
 }
 
 func GetLogsStat(c *gin.Context) {
-	summary, err := model.SummarizeLogs(logFilterFromQuery(c, true), 0)
+	filter := logFilterFromQuery(c, true)
+	excludeUserIDs, err := excludeAdminUserIDs(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	filter.ExcludeUserIDs = excludeUserIDs
+	summary, err := model.SummarizeLogs(filter, 0)
 	if err != nil {
 		common.ApiError(c, err)
 		return

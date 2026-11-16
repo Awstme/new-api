@@ -138,9 +138,19 @@ export function UserCharts(props: UserChartsProps) {
   }, [resolvedTheme])
 
   const { data: userData, isLoading } = useQuery({
-    queryKey: ['dashboard', 'user-quota', timeRange],
+    queryKey: [
+      'dashboard',
+      'user-quota',
+      timeRange,
+      props.filters.excludeAdmins,
+    ],
     queryFn: async () =>
-      requireServerSuccess(await getUserQuotaDataByUsers(timeRange)),
+      requireServerSuccess(
+        await getUserQuotaDataByUsers({
+          ...timeRange,
+          exclude_admins: props.filters.excludeAdmins || undefined,
+        })
+      ),
     select: (res) => (res.success ? res.data : []),
     staleTime: 60_000,
   })

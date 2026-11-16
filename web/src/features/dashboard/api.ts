@@ -42,6 +42,7 @@ export async function getUserQuotaDates(
     end_timestamp: number
     default_time?: string
     username?: string
+    exclude_admins?: boolean
   },
   isAdmin = false
 ) {
@@ -60,6 +61,7 @@ export async function getUserQuotaDates(
 export async function getUserQuotaDataByUsers(params: {
   start_timestamp: number
   end_timestamp: number
+  exclude_admins?: boolean
 }) {
   const res = await api.get<{ success: boolean; data: QuotaDataItem[] }>(
     '/api/data/users',
@@ -72,6 +74,7 @@ export async function getLogHealthSummary(params: {
   start_timestamp: number
   end_timestamp: number
   username?: string
+  exclude_admins?: boolean
 }) {
   const res = await api.get<{
     success: boolean
@@ -84,6 +87,7 @@ export async function getLogHealthSummary(params: {
 export async function getFreeQuotaStats(params: {
   start_timestamp: number
   end_timestamp: number
+  exclude_admins?: boolean
 }) {
   const res = await api.get<{
     success: boolean
@@ -99,6 +103,7 @@ export async function getFlowQuotaDates(
     end_timestamp: number
     default_time?: string
     username?: string
+    exclude_admins?: boolean
   },
   isAdmin = false
 ) {

@@ -101,9 +101,7 @@ function topCostItems(
     item.count += Number(row.count) || 0
     values.set(label, item)
   }
-  return [...values.values()]
-    .sort((a, b) => b.cost - a.cost)
-    .slice(0, 5)
+  return [...values.values()].sort((a, b) => b.cost - a.cost).slice(0, 5)
 }
 
 function CostRankItems(props: {
@@ -200,8 +198,7 @@ function HealthTrendChart(props: {
     props.mode === 'p95'
       ? Math.max(1, Math.max(...values) * 1.15)
       : Math.max(1, ...values)
-  const y = (value: number) =>
-    margin.top + innerH - (value / maxValue) * innerH
+  const y = (value: number) => margin.top + innerH - (value / maxValue) * innerH
 
   const formatAxisValue = (value: number) => {
     if (props.mode === 'cost') {
@@ -471,6 +468,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
       timeRange.start_timestamp,
       timeRange.end_timestamp,
       props.filters?.username,
+      props.filters?.exclude_admins === true,
     ],
     queryFn: async () => {
       const currentResult = requireServerSuccess(
@@ -478,6 +476,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
           start_timestamp: timeRange.start_timestamp,
           end_timestamp: timeRange.end_timestamp,
           username: props.filters?.username || undefined,
+          exclude_admins: props.filters?.exclude_admins || undefined,
         })
       )
       let previous: DashboardLogHealthSummary | undefined
@@ -488,6 +487,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
               start_timestamp: timeRange.start_timestamp - duration,
               end_timestamp: timeRange.start_timestamp,
               username: props.filters?.username || undefined,
+              exclude_admins: props.filters?.exclude_admins || undefined,
             })
           )
           previous = previousResult.data
@@ -507,6 +507,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
       timeRange.start_timestamp,
       timeRange.end_timestamp,
       props.filters?.username,
+      props.filters?.exclude_admins === true,
     ],
     queryFn: async () =>
       requireServerSuccess(
@@ -514,6 +515,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
           buildQueryParams(timeRange, {
             time_granularity: props.filters?.time_granularity,
             username: props.filters?.username,
+            exclude_admins: props.filters?.exclude_admins,
           }),
           true
         )
@@ -527,12 +529,14 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
       'decision-users',
       timeRange.start_timestamp,
       timeRange.end_timestamp,
+      props.filters?.exclude_admins === true,
     ],
     queryFn: async () =>
       requireServerSuccess(
         await getUserQuotaDataByUsers({
           start_timestamp: timeRange.start_timestamp,
           end_timestamp: timeRange.end_timestamp,
+          exclude_admins: props.filters?.exclude_admins || undefined,
         })
       ),
     staleTime: 60 * 1000,
@@ -754,7 +758,9 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
         <div className='grid gap-3 border-t px-3 py-3 sm:px-4 lg:grid-cols-[minmax(0,1fr)_280px]'>
           <div className='min-w-0'>
             <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-              <div className='text-xs font-semibold'>{t('Operations trend')}</div>
+              <div className='text-xs font-semibold'>
+                {t('Operations trend')}
+              </div>
               <div className='bg-muted/60 inline-flex h-7 flex-wrap rounded-lg border p-0.5'>
                 {(
                   [
@@ -825,7 +831,9 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
           <Activity />
         </IconBadge>
         <div className='min-w-0'>
-          <div className='text-sm font-semibold'>{t('Operations overview')}</div>
+          <div className='text-sm font-semibold'>
+            {t('Operations overview')}
+          </div>
           <div className='text-muted-foreground text-xs'>
             {t('Cost, traffic and site health')}
           </div>

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -121,6 +122,10 @@ var (
 // chronological order (oldest grant first), capped at the granted amount. The
 // paid source is the remainder of total consumption after free attribution.
 func GetFreeQuotaStats(startTimestamp int64, endTimestamp int64) (FreeQuotaStats, error) {
+	return GetFreeQuotaStatsExcluding(startTimestamp, endTimestamp, nil)
+}
+
+func GetFreeQuotaStatsExcluding(startTimestamp int64, endTimestamp int64, excludeUserIDs []int) (FreeQuotaStats, error) {
 	stats := FreeQuotaStats{Sources: make([]FreeQuotaSource, 0, len(freeQuotaSourceOrder)+1)}
 	if endTimestamp <= 0 {
 		endTimestamp = common.GetTimestamp()
@@ -129,15 +134,28 @@ func GetFreeQuotaStats(startTimestamp int64, endTimestamp int64) (FreeQuotaStats
 		startTimestamp = 0
 	}
 
+	excludedUsers := make(map[int]struct{}, len(excludeUserIDs))
+	for _, userId := range excludeUserIDs {
+		excludedUsers[userId] = struct{}{}
+	}
+
 	grants, usernames, err := loadFreeQuotaGrants(endTimestamp)
 	if err != nil {
 		return stats, err
 	}
+	grants = slices.DeleteFunc(grants, func(grant freeQuotaGrant) bool {
+		_, excluded := excludedUsers[grant.UserId]
+		return excluded
+	})
 
 	rangeConsumption, rangeNames, err := loadRangeQuotaConsumption(startTimestamp, endTimestamp)
 	if err != nil {
 		return stats, err
 	}
+	rangeConsumption = slices.DeleteFunc(rangeConsumption, func(item rangeQuotaConsumption) bool {
+		_, excluded := excludedUsers[item.UserId]
+		return excluded
+	})
 	for userId, username := range rangeNames {
 		if username != "" {
 			usernames[userId] = username
@@ -346,6 +364,19 @@ func GetFreeQuotaStats(startTimestamp int64, endTimestamp int64) (FreeQuotaStats
 	onlineCount, onlineQuota, onlineAmount, onlineRecords, err := loadOnlineTopupStats(startTimestamp, endTimestamp)
 	if err != nil {
 		return stats, err
+	}
+	if len(excludedUsers) > 0 {
+		onlineRecords = slices.DeleteFunc(onlineRecords, func(record OnlineTopupRecord) bool {
+			_, excluded := excludedUsers[record.UserId]
+			return excluded
+		})
+		onlineCount = int64(len(onlineRecords))
+		onlineQuota = 0
+		onlineAmount = 0
+		for _, record := range onlineRecords {
+			onlineQuota += record.Quota
+			onlineAmount += record.Amount
+		}
 	}
 	stats.OnlineTopupCount = onlineCount
 	stats.OnlineTopupQuota = onlineQuota

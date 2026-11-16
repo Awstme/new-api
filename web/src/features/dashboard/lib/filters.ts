@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   DASHBOARD_CHART_PREFERENCES_STORAGE_KEY,
+  DASHBOARD_EXCLUDE_ADMINS_STORAGE_KEY,
   DEFAULT_DASHBOARD_CHART_PREFERENCES,
   DEFAULT_TIME_GRANULARITY,
   EMPTY_DASHBOARD_FILTERS,
@@ -159,16 +160,32 @@ export function buildDefaultDashboardFilters(
 
 export function buildQueryParams(
   timeRange: { start_timestamp: number; end_timestamp: number },
-  filters?: { time_granularity?: TimeGranularity; username?: string }
+  filters?: {
+    time_granularity?: TimeGranularity
+    username?: string
+    exclude_admins?: boolean
+  }
 ): {
   start_timestamp: number
   end_timestamp: number
   default_time: string
   username?: string
+  exclude_admins?: boolean
 } {
   return {
     ...timeRange,
     default_time: getSavedGranularity(filters?.time_granularity),
     ...(filters?.username && { username: filters.username }),
+    ...(filters?.exclude_admins && { exclude_admins: true }),
   }
+}
+
+export function getSavedExcludeAdmins(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(DASHBOARD_EXCLUDE_ADMINS_STORAGE_KEY) === '1'
+}
+
+export function saveExcludeAdmins(value: boolean): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(DASHBOARD_EXCLUDE_ADMINS_STORAGE_KEY, value ? '1' : '0')
 }

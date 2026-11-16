@@ -26,10 +26,7 @@ import { getFreeQuotaStats } from '../api'
 import { getDefaultDays } from '../lib'
 import type { DashboardFilters, FreeQuotaStats } from '../types'
 
-export function useFreeQuotaStats(
-  filters?: DashboardFilters,
-  enabled = true
-) {
+export function useFreeQuotaStats(filters?: DashboardFilters, enabled = true) {
   const timeRange = useMemo(
     () =>
       computeTimeRange(
@@ -45,12 +42,14 @@ export function useFreeQuotaStats(
       'free-quota',
       timeRange.start_timestamp,
       timeRange.end_timestamp,
+      filters?.exclude_admins === true,
     ],
     queryFn: async () =>
       requireServerSuccess(
         await getFreeQuotaStats({
           start_timestamp: timeRange.start_timestamp,
           end_timestamp: timeRange.end_timestamp,
+          exclude_admins: filters?.exclude_admins || undefined,
         })
       ),
     enabled,
