@@ -442,7 +442,13 @@ func logSessionBucketExpr() string {
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		return fmt.Sprintf("intDiv(logs.created_at, %d)", logSessionWindowSeconds)
 	}
-	return fmt.Sprintf("FLOOR(logs.created_at / %d)", logSessionWindowSeconds)
+	if common.UsingLogDatabase(common.DatabaseTypeMySQL) {
+		// MySQL division returns a decimal, so the bucket must be floored.
+		return fmt.Sprintf("FLOOR(logs.created_at / %d)", logSessionWindowSeconds)
+	}
+	// PostgreSQL FLOOR(bigint) returns double precision, which cannot be scanned
+	// into int64. Integer division yields the same bucket for Unix timestamps.
+	return fmt.Sprintf("(logs.created_at / %d)", logSessionWindowSeconds)
 }
 
 func logSessionRowKey(row *Log) string {

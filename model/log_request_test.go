@@ -464,3 +464,22 @@ func TestSessionRefundReducesConsumption(t *testing.T) {
 	assert.Equal(t, LogTypeRefund, session.Type)
 	assert.Equal(t, 100, session.Quota)
 }
+
+func TestLogSessionBucketExprUsesIntegerDivisionOutsideMySQL(t *testing.T) {
+	original := common.LogDatabaseType()
+	t.Cleanup(func() { common.SetLogDatabaseType(original) })
+
+	cases := []struct {
+		dbType common.DatabaseType
+		want   string
+	}{
+		{common.DatabaseTypeSQLite, "(logs.created_at / 300)"},
+		{common.DatabaseTypePostgreSQL, "(logs.created_at / 300)"},
+		{common.DatabaseTypeMySQL, "FLOOR(logs.created_at / 300)"},
+		{common.DatabaseTypeClickHouse, "intDiv(logs.created_at, 300)"},
+	}
+	for _, tc := range cases {
+		common.SetLogDatabaseType(tc.dbType)
+		assert.Equal(t, tc.want, logSessionBucketExpr(), string(tc.dbType))
+	}
+}
