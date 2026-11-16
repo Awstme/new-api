@@ -25,7 +25,6 @@ import { SectionPageLayout } from '@/components/layout'
 import { FadeIn } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Tooltip,
@@ -36,11 +35,11 @@ import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { isAdminOnlyDashboardSection } from './access'
-import { AdminHealthPanel } from './components/models/admin-health-panel'
-import { FreeQuotaPanel } from './components/models/free-quota-panel'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
+import { ExcludeAdminsToggle } from './components/exclude-admins-toggle'
+import { AdminHealthPanel } from './components/models/admin-health-panel'
+import { FreeQuotaPanel } from './components/models/free-quota-panel'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
@@ -52,6 +51,7 @@ import {
   saveChartPreferences,
   saveExcludeAdmins,
 } from './lib'
+import { isAdminOnlyDashboardSection } from './access'
 import {
   type DashboardSectionId,
   DASHBOARD_DEFAULT_SECTION,
@@ -358,17 +358,10 @@ export function Dashboard() {
   const sectionActions = modelActions ?? flowActions
   const excludeAdminsToggle =
     isAdmin && activeSection !== 'overview' ? (
-      <label
-        className='text-muted-foreground flex shrink-0 items-center gap-2 text-xs'
-        title={t('Exclude admin accounts from dashboard statistics')}
-      >
-        <Switch
-          checked={excludeAdmins}
-          aria-label={t('Exclude admins')}
-          onCheckedChange={handleExcludeAdminsChange}
-        />
-        {t('Exclude admins')}
-      </label>
+      <ExcludeAdminsToggle
+        checked={excludeAdmins}
+        onCheckedChange={handleExcludeAdminsChange}
+      />
     ) : null
 
   if (
@@ -412,54 +405,54 @@ export function Dashboard() {
                 </FadeIn>
               )}
               <>
-                <FadeIn>
-                  <Suspense fallback={<LogStatCardsFallback />}>
-                    <LazyLogStatCards
-                      filters={modelFilters}
-                      onDataUpdate={handleDataUpdate}
-                    />
-                  </Suspense>
-                </FadeIn>
-                {isAdmin && (
-                  <FadeIn delay={0.03}>
-                    <FreeQuotaPanel filters={modelFilters} />
-                  </FadeIn>
-                )}
-                {isAdmin && (
-                  <FadeIn delay={0.05}>
-                    <Suspense fallback={<PerformanceOverviewFallback />}>
-                      <LazyPerformanceOverview excludeAdmins={excludeAdmins} />
+                  <FadeIn>
+                    <Suspense fallback={<LogStatCardsFallback />}>
+                      <LazyLogStatCards
+                        filters={modelFilters}
+                        onDataUpdate={handleDataUpdate}
+                      />
                     </Suspense>
                   </FadeIn>
-                )}
-                <FadeIn delay={0.1}>
-                  <Suspense fallback={<ModelChartsFallback />}>
-                    <LazyConsumptionDistributionChart
-                      data={modelData}
-                      loading={dataLoading}
-                      defaultChartType={
-                        chartPreferences.consumptionDistributionChart
-                      }
-                      timeGranularity={
-                        modelFilters.time_granularity ||
-                        DEFAULT_TIME_GRANULARITY
-                      }
-                    />
-                  </Suspense>
-                </FadeIn>
-                <FadeIn delay={0.15}>
-                  <Suspense fallback={<ModelChartsFallback />}>
-                    <LazyModelCharts
-                      data={modelData}
-                      loading={dataLoading}
-                      defaultChartTab={chartPreferences.modelAnalyticsChart}
-                      timeGranularity={
-                        modelFilters.time_granularity ||
-                        DEFAULT_TIME_GRANULARITY
-                      }
-                    />
-                  </Suspense>
-                </FadeIn>
+                  {isAdmin && (
+                    <FadeIn delay={0.03}>
+                      <FreeQuotaPanel filters={modelFilters} />
+                    </FadeIn>
+                  )}
+                  {isAdmin && (
+                    <FadeIn delay={0.05}>
+                      <Suspense fallback={<PerformanceOverviewFallback />}>
+                        <LazyPerformanceOverview excludeAdmins={excludeAdmins} />
+                      </Suspense>
+                    </FadeIn>
+                  )}
+                  <FadeIn delay={0.1}>
+                    <Suspense fallback={<ModelChartsFallback />}>
+                      <LazyConsumptionDistributionChart
+                        data={modelData}
+                        loading={dataLoading}
+                        defaultChartType={
+                          chartPreferences.consumptionDistributionChart
+                        }
+                        timeGranularity={
+                          modelFilters.time_granularity ||
+                          DEFAULT_TIME_GRANULARITY
+                        }
+                      />
+                    </Suspense>
+                  </FadeIn>
+                  <FadeIn delay={0.15}>
+                    <Suspense fallback={<ModelChartsFallback />}>
+                      <LazyModelCharts
+                        data={modelData}
+                        loading={dataLoading}
+                        defaultChartTab={chartPreferences.modelAnalyticsChart}
+                        timeGranularity={
+                          modelFilters.time_granularity ||
+                          DEFAULT_TIME_GRANULARITY
+                        }
+                      />
+                    </Suspense>
+                  </FadeIn>
               </>
             </>
           )}

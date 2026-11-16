@@ -109,7 +109,10 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     setCostE4((current) => !current)
   }, [])
   useEffect(() => {
-    window.localStorage.setItem(COST_E4_STORAGE_KEY, costE4 ? '1' : '0')
+    window.localStorage.setItem(
+      COST_E4_STORAGE_KEY,
+      costE4 ? '1' : '0'
+    )
   }, [costE4])
   const logView = searchParams.view ?? 'sessions'
   let groupBy: 'request' | 'session' | undefined
@@ -318,9 +321,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
                 onClick={(event) => {
                   const target = event.target as HTMLElement
                   if (
-                    target.closest(
-                      'button, a, input, textarea, [role="button"]'
-                    )
+                    target.closest('button, a, input, textarea, [role="button"]')
                   ) {
                     return
                   }

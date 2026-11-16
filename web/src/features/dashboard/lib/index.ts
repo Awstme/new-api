@@ -25,9 +25,8 @@ export {
   getSavedChartPreferences,
   saveChartPreferences,
   buildDefaultDashboardFilters,
-  getSavedExcludeAdmins,
-  saveExcludeAdmins,
 } from './filters'
+export { getSavedExcludeAdmins, saveExcludeAdmins } from './exclude-admins'
 export {
   getLatencyColorClass,
   testUrlLatency,

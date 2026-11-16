@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   DASHBOARD_CHART_PREFERENCES_STORAGE_KEY,
-  DASHBOARD_EXCLUDE_ADMINS_STORAGE_KEY,
   DEFAULT_DASHBOARD_CHART_PREFERENCES,
   DEFAULT_TIME_GRANULARITY,
   EMPTY_DASHBOARD_FILTERS,
@@ -178,14 +177,4 @@ export function buildQueryParams(
     ...(filters?.username && { username: filters.username }),
     ...(filters?.exclude_admins && { exclude_admins: true }),
   }
-}
-
-export function getSavedExcludeAdmins(): boolean {
-  if (typeof window === 'undefined') return false
-  return localStorage.getItem(DASHBOARD_EXCLUDE_ADMINS_STORAGE_KEY) === '1'
-}
-
-export function saveExcludeAdmins(value: boolean): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(DASHBOARD_EXCLUDE_ADMINS_STORAGE_KEY, value ? '1' : '0')
 }

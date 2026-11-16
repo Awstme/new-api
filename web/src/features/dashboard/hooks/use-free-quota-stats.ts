@@ -26,7 +26,10 @@ import { getFreeQuotaStats } from '../api'
 import { getDefaultDays } from '../lib'
 import type { DashboardFilters, FreeQuotaStats } from '../types'
 
-export function useFreeQuotaStats(filters?: DashboardFilters, enabled = true) {
+export function useFreeQuotaStats(
+  filters?: DashboardFilters,
+  enabled = true
+) {
   const timeRange = useMemo(
     () =>
       computeTimeRange(

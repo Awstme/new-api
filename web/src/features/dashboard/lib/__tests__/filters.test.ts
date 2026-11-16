@@ -18,11 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import {
-  buildQueryParams,
-  getSavedExcludeAdmins,
-  saveExcludeAdmins,
-} from '../filters'
+import { getSavedExcludeAdmins, saveExcludeAdmins } from '../exclude-admins'
+import { buildQueryParams } from '../filters'
 
 describe('dashboard query filters', () => {
   beforeEach(() => {

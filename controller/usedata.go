@@ -28,14 +28,6 @@ func parseFlowQuotaTimeRange(c *gin.Context) (int64, int64, bool) {
 	return startTimestamp, endTimestamp, true
 }
 
-func excludeAdminUserIDs(c *gin.Context) ([]int, error) {
-	enabled, _ := strconv.ParseBool(c.Query("exclude_admins"))
-	if !enabled {
-		return nil, nil
-	}
-	return model.GetAdminUserIDs()
-}
-
 func GetAllQuotaDates(c *gin.Context) {
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -45,7 +37,7 @@ func GetAllQuotaDates(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	dates, err := model.GetAllQuotaDates(startTimestamp, endTimestamp, username, excludeUserIDs)
+	dates, err := model.GetAllQuotaDatesExcluding(startTimestamp, endTimestamp, username, excludeUserIDs)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -66,7 +58,7 @@ func GetQuotaDatesByUser(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	dates, err := model.GetQuotaDataGroupByUser(startTimestamp, endTimestamp, excludeUserIDs)
+	dates, err := model.GetQuotaDataGroupByUserExcluding(startTimestamp, endTimestamp, excludeUserIDs)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -111,7 +103,7 @@ func GetAllFlowQuotaDates(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	dates, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, username, 0, c.GetInt("role"), excludeUserIDs)
+	dates, err := model.GetFlowQuotaDataExcluding(startTimestamp, endTimestamp, username, 0, c.GetInt("role"), excludeUserIDs)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -134,7 +126,7 @@ func GetUserFlowQuotaDates(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	dates, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, "", userId, common.RoleCommonUser, nil)
+	dates, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, "", userId, common.RoleCommonUser)
 	if err != nil {
 		common.ApiError(c, err)
 		return

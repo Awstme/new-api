@@ -313,6 +313,42 @@ it.each([
   }
 )
 
+it('shows 365 Days when allowed and selects the last 365 days', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 8, 12))
+  const user = userEvent.setup()
+  const onChange = vi.fn()
+  render(
+    <CompactDateTimeRangePicker
+      start={new Date(2026, 7, 10)}
+      end={new Date(2026, 8, 8)}
+      allow365Days
+      onChange={onChange}
+    />
+  )
+  await user.click(screen.getByRole('button', { name: /^2026/ }))
+  await user.click(screen.getByRole('button', { name: '365 Days' }))
+  expect(onChange).toHaveBeenCalledWith({
+    start: new Date(2025, 8, 9),
+    end: new Date(2026, 8, 8, 23, 59, 59, 999),
+  })
+})
+
+it('does not offer 365 Days when it is not allowed', async () => {
+  const user = userEvent.setup()
+  render(
+    <CompactDateTimeRangePicker
+      start={new Date(2026, 7, 10)}
+      end={new Date(2026, 8, 8)}
+      onChange={() => undefined}
+    />
+  )
+  await user.click(screen.getByRole('button', { name: /^2026/ }))
+  expect(
+    screen.queryByRole('button', { name: '365 Days' })
+  ).not.toBeInTheDocument()
+})
+
 it('keeps the seconds of the current range when it is confirmed again', async () => {
   const user = userEvent.setup()
   const onChange = vi.fn()

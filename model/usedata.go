@@ -155,7 +155,11 @@ func applyExcludeUserIDs(query *gorm.DB, userIDs []int) *gorm.DB {
 	return query
 }
 
-func GetQuotaDataByUsername(username string, startTime int64, endTime int64, excludeUserIDs []int) (quotaData []*QuotaData, err error) {
+func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return GetQuotaDataByUsernameExcluding(username, startTime, endTime, nil)
+}
+
+func GetQuotaDataByUsernameExcluding(username string, startTime int64, endTime int64, excludeUserIDs []int) (quotaData []*QuotaData, err error) {
 	var quotaDatas []*QuotaData
 	// 从quota_data表中查询数据
 	query := DB.Table("quota_data").
@@ -178,7 +182,11 @@ func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData
 	return quotaDatas, err
 }
 
-func GetQuotaDataGroupByUser(startTime int64, endTime int64, excludeUserIDs []int) (quotaData []*QuotaData, err error) {
+func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return GetQuotaDataGroupByUserExcluding(startTime, endTime, nil)
+}
+
+func GetQuotaDataGroupByUserExcluding(startTime int64, endTime int64, excludeUserIDs []int) (quotaData []*QuotaData, err error) {
 	var quotaDatas []*QuotaData
 	query := DB.Table("quota_data").
 		Select("username, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, sum(cache_read_tokens) as cache_read_tokens, sum(cache_creation_tokens) as cache_creation_tokens").
@@ -189,9 +197,13 @@ func GetQuotaDataGroupByUser(startTime int64, endTime int64, excludeUserIDs []in
 	return quotaDatas, err
 }
 
-func GetAllQuotaDates(startTime int64, endTime int64, username string, excludeUserIDs []int) (quotaData []*QuotaData, err error) {
+func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaData []*QuotaData, err error) {
+	return GetAllQuotaDatesExcluding(startTime, endTime, username, nil)
+}
+
+func GetAllQuotaDatesExcluding(startTime int64, endTime int64, username string, excludeUserIDs []int) (quotaData []*QuotaData, err error) {
 	if username != "" {
-		return GetQuotaDataByUsername(username, startTime, endTime, excludeUserIDs)
+		return GetQuotaDataByUsernameExcluding(username, startTime, endTime, excludeUserIDs)
 	}
 	var quotaDatas []*QuotaData
 	// 从quota_data表中查询数据
