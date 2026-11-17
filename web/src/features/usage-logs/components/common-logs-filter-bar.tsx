@@ -354,6 +354,7 @@ export function CommonLogsFilterBar<TData>(
       <CompactDateTimeRangePicker
         start={filters.startTime}
         end={filters.endTime}
+        allow365Days
         onChange={({ start, end }) => {
           handleChange('startTime', start)
           handleChange('endTime', end)

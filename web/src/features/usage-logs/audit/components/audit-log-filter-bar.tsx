@@ -78,6 +78,7 @@ export function AuditLogFilterBar(props: {
             ? undefined
             : new Date(props.filters.end_timestamp * 1000)
         }
+        allow365Days
         onChange={({ start, end }) =>
           props.onChange({
             start_timestamp: start

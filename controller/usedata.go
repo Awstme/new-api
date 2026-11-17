@@ -32,7 +32,12 @@ func GetAllQuotaDates(c *gin.Context) {
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	username := c.Query("username")
-	dates, err := model.GetAllQuotaDates(startTimestamp, endTimestamp, username)
+	excludeUserIDs, err := excludeAdminUserIDs(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	dates, err := model.GetAllQuotaDatesExcluding(startTimestamp, endTimestamp, username, excludeUserIDs)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -48,7 +53,12 @@ func GetAllQuotaDates(c *gin.Context) {
 func GetQuotaDatesByUser(c *gin.Context) {
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
-	dates, err := model.GetQuotaDataGroupByUser(startTimestamp, endTimestamp)
+	excludeUserIDs, err := excludeAdminUserIDs(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	dates, err := model.GetQuotaDataGroupByUserExcluding(startTimestamp, endTimestamp, excludeUserIDs)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -88,7 +98,12 @@ func GetAllFlowQuotaDates(c *gin.Context) {
 		return
 	}
 	username := c.Query("username")
-	dates, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, username, 0, c.GetInt("role"))
+	excludeUserIDs, err := excludeAdminUserIDs(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	dates, err := model.GetFlowQuotaDataExcluding(startTimestamp, endTimestamp, username, 0, c.GetInt("role"), excludeUserIDs)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -129,7 +144,12 @@ func GetFreeQuotaStats(c *gin.Context) {
 	if !ok {
 		return
 	}
-	stats, err := model.GetFreeQuotaStats(startTimestamp, endTimestamp)
+	excludeUserIDs, err := excludeAdminUserIDs(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	stats, err := model.GetFreeQuotaStatsExcluding(startTimestamp, endTimestamp, excludeUserIDs)
 	if err != nil {
 		common.ApiError(c, err)
 		return

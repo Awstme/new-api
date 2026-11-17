@@ -24,6 +24,7 @@ export async function getLogHealthSummary(params: {
   start_timestamp: number
   end_timestamp: number
   username?: string
+  exclude_admins?: boolean
 }) {
   const res = await api.get<{
     success: boolean
@@ -36,6 +37,7 @@ export async function getLogHealthSummary(params: {
 export async function getFreeQuotaStats(params: {
   start_timestamp: number
   end_timestamp: number
+  exclude_admins?: boolean
 }) {
   const res = await api.get<{
     success: boolean

@@ -38,14 +38,17 @@ import { useAuthStore } from '@/stores/auth-store'
 import { isAdminOnlyDashboardSection } from './access'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
+import { ExcludeAdminsToggle } from './components/exclude-admins-toggle'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
   buildDefaultDashboardFilters,
   getDefaultDays,
   getSavedChartPreferences,
+  getSavedExcludeAdmins,
   getSavedGranularity,
   saveChartPreferences,
+  saveExcludeAdmins,
 } from './lib'
 import {
   type DashboardSectionId,
@@ -218,9 +221,13 @@ export function Dashboard() {
   const [dataLoading, setDataLoading] = useState(false)
   const [chartPreferences, setChartPreferences] =
     useState<DashboardChartPreferences>(() => getSavedChartPreferences())
-  const [modelFilters, setModelFilters] = useState<DashboardFilters>(() =>
-    buildDefaultDashboardFilters(getSavedChartPreferences())
+  const [excludeAdmins, setExcludeAdmins] = useState(() =>
+    getSavedExcludeAdmins()
   )
+  const [modelFilters, setModelFilters] = useState<DashboardFilters>(() => ({
+    ...buildDefaultDashboardFilters(getSavedChartPreferences()),
+    exclude_admins: getSavedExcludeAdmins(),
+  }))
   const [userChartsFilters, setUserChartsFilters] = useState<UserChartsFilters>(
     () => {
       const granularity = getSavedGranularity()
@@ -228,18 +235,38 @@ export function Dashboard() {
         timeGranularity: granularity,
         selectedRange: getDefaultDays(granularity),
         topUserLimit: 10,
+        excludeAdmins: getSavedExcludeAdmins(),
       }
     }
   )
   const [flowSensitiveVisible, setFlowSensitiveVisible] = useState(true)
 
-  const handleFilterChange = useCallback((filters: DashboardFilters) => {
-    setModelFilters(filters)
-  }, [])
+  const handleFilterChange = useCallback(
+    (filters: DashboardFilters) => {
+      setModelFilters({ ...filters, exclude_admins: excludeAdmins })
+    },
+    [excludeAdmins]
+  )
 
   const handleResetFilters = useCallback(() => {
-    setModelFilters(buildDefaultDashboardFilters(chartPreferences))
-  }, [chartPreferences])
+    setModelFilters({
+      ...buildDefaultDashboardFilters(chartPreferences),
+      exclude_admins: excludeAdmins,
+    })
+  }, [chartPreferences, excludeAdmins])
+
+  const handleExcludeAdminsChange = useCallback((checked: boolean) => {
+    setExcludeAdmins(checked)
+    saveExcludeAdmins(checked)
+    setModelFilters((previous) => ({
+      ...previous,
+      exclude_admins: checked,
+    }))
+    setUserChartsFilters((previous) => ({
+      ...previous,
+      excludeAdmins: checked,
+    }))
+  }, [])
 
   const handleDataUpdate = useCallback(
     (data: QuotaDataItem[], loading: boolean) => {
@@ -252,10 +279,13 @@ export function Dashboard() {
   const handleChartPreferencesChange = useCallback(
     (preferences: DashboardChartPreferences) => {
       setChartPreferences(preferences)
-      setModelFilters(buildDefaultDashboardFilters(preferences))
+      setModelFilters({
+        ...buildDefaultDashboardFilters(preferences),
+        exclude_admins: excludeAdmins,
+      })
       saveChartPreferences(preferences)
     },
-    []
+    [excludeAdmins]
   )
 
   const meta = SECTION_META[activeSection] ?? SECTION_META.overview
@@ -342,6 +372,13 @@ export function Dashboard() {
       />
     ) : null
   const sectionActions = modelActions ?? flowActions ?? opsActions
+  const excludeAdminsToggle =
+    isAdmin && activeSection !== 'overview' ? (
+      <ExcludeAdminsToggle
+        checked={excludeAdmins}
+        onCheckedChange={handleExcludeAdminsChange}
+      />
+    ) : null
 
   if (
     activeSection === 'overview' ||
@@ -369,8 +406,9 @@ export function Dashboard() {
             ) : (
               <div />
             )}
-            {sectionActions != null && (
-              <div className='flex shrink-0 flex-wrap items-center gap-1.5 sm:gap-2'>
+            {(excludeAdminsToggle != null || sectionActions != null) && (
+              <div className='flex shrink-0 flex-wrap items-center gap-2 sm:gap-3'>
+                {excludeAdminsToggle}
                 {sectionActions}
               </div>
             )}
@@ -388,7 +426,7 @@ export function Dashboard() {
               {isAdmin && (
                 <FadeIn delay={0.05}>
                   <Suspense fallback={<PerformanceOverviewFallback />}>
-                    <LazyPerformanceOverview />
+                    <LazyPerformanceOverview excludeAdmins={excludeAdmins} />
                   </Suspense>
                 </FadeIn>
               )}

@@ -45,6 +45,7 @@ export function useOpsModelQuota(filters?: DashboardFilters) {
       timeRange.start_timestamp,
       timeRange.end_timestamp,
       filters?.username,
+      filters?.exclude_admins === true,
     ],
     queryFn: async () =>
       requireServerSuccess(
@@ -52,6 +53,7 @@ export function useOpsModelQuota(filters?: DashboardFilters) {
           buildQueryParams(timeRange, {
             time_granularity: filters?.time_granularity,
             username: filters?.username,
+            exclude_admins: filters?.exclude_admins,
           }),
           true
         )

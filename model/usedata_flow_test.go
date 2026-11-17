@@ -130,6 +130,12 @@ func TestGetFlowQuotaDataUsesQuotaDataRoleSpecificDimensions(t *testing.T) {
 	require.Empty(t, selfRows[0].TokenName)
 	require.Equal(t, "vip", selfRows[0].UseGroup)
 	require.Equal(t, 175, selfRows[0].Quota)
+
+	excludedRows, err := GetFlowQuotaDataExcluding(900, 2000, "", 0, common.RoleRootUser, []int{1})
+	require.NoError(t, err)
+	require.Len(t, excludedRows, 1)
+	require.Equal(t, 2, excludedRows[0].UserID)
+	require.Equal(t, 70, excludedRows[0].Quota)
 }
 
 func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {

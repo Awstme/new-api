@@ -43,12 +43,14 @@ export function useFreeQuotaStats(filters?: DashboardFilters, enabled = true) {
       'free-quota',
       timeRange.start_timestamp,
       timeRange.end_timestamp,
+      filters?.exclude_admins === true,
     ],
     queryFn: async () =>
       requireServerSuccess(
         await getFreeQuotaStats({
           start_timestamp: timeRange.start_timestamp,
           end_timestamp: timeRange.end_timestamp,
+          exclude_admins: filters?.exclude_admins || undefined,
         })
       ),
     enabled,

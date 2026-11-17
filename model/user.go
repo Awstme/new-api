@@ -1531,6 +1531,14 @@ func (user *User) FillUserByLinuxDOId() error {
 	return err
 }
 
+func GetAdminUserIDs() ([]int, error) {
+	var ids []int
+	err := DB.Unscoped().Model(&User{}).
+		Where("role >= ?", common.RoleAdminUser).
+		Pluck("id", &ids).Error
+	return ids, err
+}
+
 func RootUserExists() bool {
 	var user User
 	err := DB.Where("role = ?", common.RoleRootUser).First(&user).Error

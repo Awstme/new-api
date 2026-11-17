@@ -466,6 +466,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
       timeRange.start_timestamp,
       timeRange.end_timestamp,
       props.filters?.username,
+      props.filters?.exclude_admins === true,
     ],
     queryFn: async () => {
       const currentResult = requireServerSuccess(
@@ -473,6 +474,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
           start_timestamp: timeRange.start_timestamp,
           end_timestamp: timeRange.end_timestamp,
           username: props.filters?.username || undefined,
+          exclude_admins: props.filters?.exclude_admins || undefined,
         })
       )
       let previous: DashboardLogHealthSummary | undefined
@@ -483,6 +485,7 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
               start_timestamp: timeRange.start_timestamp - duration,
               end_timestamp: timeRange.start_timestamp,
               username: props.filters?.username || undefined,
+              exclude_admins: props.filters?.exclude_admins || undefined,
             })
           )
           previous = previousResult.data
@@ -502,12 +505,14 @@ export function AdminHealthPanel(props: AdminHealthPanelProps) {
       'decision-users',
       timeRange.start_timestamp,
       timeRange.end_timestamp,
+      props.filters?.exclude_admins === true,
     ],
     queryFn: async () =>
       requireServerSuccess(
         await getUserQuotaDataByUsers({
           start_timestamp: timeRange.start_timestamp,
           end_timestamp: timeRange.end_timestamp,
+          exclude_admins: props.filters?.exclude_admins || undefined,
         })
       ),
     staleTime: 60 * 1000,

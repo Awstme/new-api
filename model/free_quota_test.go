@@ -229,6 +229,22 @@ func TestGetFreeQuotaStatsUsesConsumedQuota(t *testing.T) {
 	assert.EqualValues(t, 700, adminByUser[4].Granted)
 	assert.EqualValues(t, 100, adminByUser[9].Used)
 	assert.EqualValues(t, 500, adminByUser[9].Granted, "topup-only grants are counted without an audit row")
+
+	excluded, err := GetFreeQuotaStatsExcluding(15, 30, []int{1, 4})
+	require.NoError(t, err)
+	excludedByKey := make(map[string]FreeQuotaSource, len(excluded.Sources))
+	for _, source := range excluded.Sources {
+		excludedByKey[source.Key] = source
+	}
+	assert.EqualValues(t, 1000, excludedByKey[FreeQuotaSourceNewUser].Quota)
+	assert.EqualValues(t, 2500, excludedByKey[FreeQuotaSourceNewUser].Granted)
+	assert.EqualValues(t, 3, excludedByKey[FreeQuotaSourceNewUser].Count)
+	assert.EqualValues(t, 100, excludedByKey[FreeQuotaSourceAdmin].Quota)
+	assert.EqualValues(t, 500, excludedByKey[FreeQuotaSourceAdmin].Granted)
+	assert.EqualValues(t, 1175, excluded.Total)
+	assert.EqualValues(t, 1725, excluded.ConsumptionTotal)
+	assert.Zero(t, excluded.OnlineTopupCount)
+	assert.Empty(t, excluded.OnlineTopupRecords)
 }
 
 func TestParseGrantQuota(t *testing.T) {

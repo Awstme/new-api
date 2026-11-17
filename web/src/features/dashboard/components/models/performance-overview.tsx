@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils'
 const PERFORMANCE_WINDOW_HOURS = 24
 const TOP_MODEL_LIMIT = 6
 
-export function PerformanceOverview() {
+export function PerformanceOverview(props: { excludeAdmins?: boolean }) {
   const { t } = useTranslation()
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics-summary', PERFORMANCE_WINDOW_HOURS],
@@ -78,6 +78,11 @@ export function PerformanceOverview() {
           <span className='text-xs font-semibold whitespace-nowrap'>
             {t('Performance health')}
           </span>
+          {props.excludeAdmins && (
+            <span className='text-muted-foreground/60 text-[10px] whitespace-nowrap'>
+              {t('User filter not applied')}
+            </span>
+          )}
         </div>
 
         {/* Separator */}

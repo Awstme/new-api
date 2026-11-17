@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils'
 
 import { LOG_TYPE_ENUM } from '../constants'
 import type { UsageLog } from '../data/schema'
+import { getCommonLogRowTone, type CommonLogRowTone } from '../lib/log-row-tone'
 import { TASK_MOBILE_SUMMARY_FIELDS } from '../lib/task-mobile-layout'
 import type { LogCategory } from '../types'
 import { CommonLogMobileCard } from './common-log-mobile-card'
@@ -43,12 +44,21 @@ const logTypeRowTint: Record<number, string> = {
     'bg-blue-50/30 dark:bg-blue-950/15 border-blue-200/50 dark:border-blue-900/30',
 }
 
+const commonRowTint: Record<Exclude<CommonLogRowTone, null>, string> = {
+  error:
+    'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/50 dark:border-rose-900/30',
+  refund:
+    'bg-blue-50/30 dark:bg-blue-950/15 border-blue-200/50 dark:border-blue-900/30',
+  saturation: 'bg-amber-50/60 dark:bg-amber-950/25',
+}
+
 interface UsageLogsMobileListProps<TData> {
   table: Table<TData>
   isLoading?: boolean
   emptyTitle?: string
   emptyDescription?: string
   logCategory: LogCategory
+  isAdmin?: boolean
 }
 
 function UsageLogsMobileSkeleton(props: { separate: boolean }) {
@@ -242,6 +252,7 @@ export function UsageLogsMobileList<TData>({
   emptyTitle,
   emptyDescription,
   logCategory,
+  isAdmin = false,
 }: UsageLogsMobileListProps<TData>) {
   const { t } = useTranslation()
 
@@ -285,10 +296,21 @@ export function UsageLogsMobileList<TData>({
           row.getVisibleCells().map((cell) => [cell.column.id, cell])
         )
 
-        const logType = (row.original as Record<string, unknown>).type as
-          | number
-          | undefined
-        const tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
+        const original = row.original as Record<string, unknown>
+        const logType = original.type as number | undefined
+        let tintClass = ''
+        if (logCategory === 'common') {
+          const tone = getCommonLogRowTone(
+            {
+              type: logType,
+              other: original.other as string | undefined,
+            },
+            isAdmin
+          )
+          tintClass = tone ? commonRowTint[tone] : ''
+        } else if (logType != null) {
+          tintClass = logTypeRowTint[logType] ?? ''
+        }
 
         return (
           <div

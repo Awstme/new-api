@@ -519,6 +519,7 @@ type LogFilter struct {
 	RequestId         string
 	UpstreamRequestId string
 	Query             string
+	ExcludeUserIDs    []int
 }
 
 func (f LogFilter) apply(tx *gorm.DB) (*gorm.DB, error) {
@@ -552,6 +553,9 @@ func (f LogFilter) apply(tx *gorm.DB) (*gorm.DB, error) {
 	}
 	if f.Group != "" {
 		tx = tx.Where("logs."+logGroupCol+" = ?", f.Group)
+	}
+	if len(f.ExcludeUserIDs) > 0 {
+		tx = tx.Where("logs.user_id NOT IN ?", f.ExcludeUserIDs)
 	}
 	tx = applyLogQueryFilter(tx, f.Query)
 	return tx, nil

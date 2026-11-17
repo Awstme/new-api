@@ -37,15 +37,11 @@ import { createServerError } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
-import {
-  DEFAULT_LOGS_DATA,
-  LOG_TYPE_ALL_VALUE,
-  LOG_TYPE_ENUM,
-} from '../constants'
+import { DEFAULT_LOGS_DATA, LOG_TYPE_ALL_VALUE } from '../constants'
 import type { UsageLog } from '../data/schema'
 import { shouldShowBillingSource } from '../lib/billing-source'
 import { useColumnsByCategory } from '../lib/columns'
-import { parseLogOther } from '../lib/format'
+import { getCommonLogRowTone, type CommonLogRowTone } from '../lib/log-row-tone'
 import { fetchLogsByCategory } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
@@ -63,14 +59,11 @@ const route = getRouteApi('/_authenticated/usage-logs/$section')
 
 const COST_E4_STORAGE_KEY = 'usage-logs:cost-e4'
 
-const logTypeRowTint: Record<number, string> = {
-  [LOG_TYPE_ENUM.ERROR]: 'bg-rose-50/40 dark:bg-rose-950/20',
-  [LOG_TYPE_ENUM.REFUND]: 'bg-blue-50/30 dark:bg-blue-950/15',
+const commonRowTint: Record<Exclude<CommonLogRowTone, null>, string> = {
+  error: 'bg-rose-50/40 dark:bg-rose-950/20',
+  refund: 'bg-blue-50/30 dark:bg-blue-950/15',
+  saturation: 'bg-amber-50/60 dark:bg-amber-950/25',
 }
-
-// Warning tint for logs where a quota conversion saturated (admin-only marker).
-// Takes precedence over the per-type tint since it flags a billing anomaly.
-const quotaSaturationRowTint = 'bg-amber-50/60 dark:bg-amber-950/25'
 
 function getColumnVisibilityStorageKey(
   logCategory: LogCategory,
@@ -293,6 +286,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
             table={table}
             isLoading={isLoadingData}
             logCategory={logCategory}
+            isAdmin={isAdmin}
           />
         }
         toolbar={
@@ -303,19 +297,17 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
           )
         }
         renderRow={(row) => {
-          const logType = (row.original as Record<string, unknown>).type as
-            | number
-            | undefined
-          let tintClass =
-            isCommon && logType != null ? (logTypeRowTint[logType] ?? '') : ''
-          if (isCommon && isAdmin) {
-            const other = parseLogOther(
-              ((row.original as Record<string, unknown>).other as string) ?? ''
-            )
-            if (other?.admin_info?.quota_saturation) {
-              tintClass = quotaSaturationRowTint
-            }
-          }
+          const original = row.original as Record<string, unknown>
+          const tone = isCommon
+            ? getCommonLogRowTone(
+                {
+                  type: original.type as number | undefined,
+                  other: original.other as string | undefined,
+                },
+                isAdmin
+              )
+            : null
+          const tintClass = tone ? commonRowTint[tone] : ''
 
           const expanded = expandedRowId === row.id
           return (
