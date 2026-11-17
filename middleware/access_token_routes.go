@@ -245,6 +245,7 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/log/channel_affinity_usage_cache": accessTokenScopeRule("log:read"),
 	"GET /api/log/search":                       accessTokenScopeRule("log:read"),
 	"GET /api/log/self":                         accessTokenScopeRule("usage:read"),
+	"GET /api/log/expand":                       accessTokenScopeRule("usage:read"),
 	"GET /api/log/self/search":                  accessTokenScopeRule("usage:read"),
 	"GET /api/log/export":                       accessTokenScopeRule("log:read"),
 	"GET /api/log/self/export":                  accessTokenScopeRule("usage:read"),
@@ -252,6 +253,7 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/data/users":                       accessTokenScopeRule("log:read"),
 	"GET /api/data/self":                        accessTokenScopeRule("usage:read"),
 	"GET /api/data/flow":                        accessTokenScopeRule("log:read"),
+	"GET /api/data/free-quota":                  accessTokenScopeRule("log:read"),
 	"GET /api/data/flow/self":                   accessTokenScopeRule("usage:read"),
 
 	// router/api-router.go: /api/group, /api/prefill_group
