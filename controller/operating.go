@@ -114,3 +114,56 @@ func GetOperatingFlow(c *gin.Context) {
 	}
 	common.ApiSuccess(c, flow)
 }
+
+func GetOperatingRefunds(c *gin.Context) {
+	startAt, endAt, ok := parseOperatingRange(c)
+	if !ok {
+		return
+	}
+	refunds, err := model.GetOperatingRefunds(startAt, endAt)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, refunds)
+}
+
+type operatingRefundRequest struct {
+	OperationId string `json:"operation_id"`
+	AmountCents int64  `json:"amount_cents"`
+	OccurredAt  int64  `json:"occurred_at"`
+	Note        string `json:"note"`
+}
+
+func CreateOperatingRefund(c *gin.Context) {
+	var req operatingRefundRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	refund, err := model.CreateOperatingRefund(model.OperatingRefundInput{
+		OperationId: req.OperationId,
+		AmountCents: req.AmountCents,
+		OccurredAt:  req.OccurredAt,
+		Note:        req.Note,
+		OperatorId:  c.GetInt("id"),
+	})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, refund)
+}
+
+func DeleteOperatingRefund(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	if err := model.DeleteOperatingRefund(id); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": ""})
+}

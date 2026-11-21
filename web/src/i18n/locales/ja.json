@@ -7867,6 +7867,21 @@
     "Expense": "支出",
     "Credits": "クォータ",
     "Page {{page}} of {{total}}": "{{page}} / {{total}} ページ",
-    "Income, expenses and issued credits appear here once they happen in the selected range.": "選択した期間に発生した収入・支出・クォータ付与がここに表示されます。"
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "選択した期間に発生した収入・支出・クォータ付与がここに表示されます。",
+    "Record refund": "返金を記録",
+    "Refunds": "返金",
+    "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.": "実際に返金した現金を記録します。ウォレットは有料クォータと無償クォータを区別できないため、ユーザー残高は変更しません。",
+    "No refunds recorded in this range": "この期間の返金記録はありません",
+    "Refund records": "返金記録",
+    "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.": "管理者が入力した現金返金。期間合計にのみ計上し、ユーザー残高は変更しません。",
+    "Delete this refund record?": "この返金記録を削除しますか？",
+    "The refund will be removed from this period total.": "この返金は今回の合計から除外されます。",
+    "Refund recorded": "返金を記録しました",
+    "Invalid operation id": "操作 ID が無効です",
+    "Refund amount must be greater than zero": "返金額は 0 より大きい必要があります",
+    "Refund amount is too large": "返金額が大きすぎます",
+    "Refund date is required": "返金日が必須です",
+    "Refund note is too long": "返金のメモが長すぎます",
+    "Paid amount minus refunds and expenses": "支払金額から返金と支出を差し引いた額"
   }
 }

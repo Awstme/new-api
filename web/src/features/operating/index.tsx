@@ -27,6 +27,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   OperatingExpenseTable,
   OperatingGrantTable,
+  OperatingRefundTable,
   OperatingSummaryCards,
 } from './components/operating-cards'
 import { OperatingFlowTable } from './components/operating-flow-table'
@@ -88,6 +89,11 @@ function OperatingOverview(props: { activePreset: number; onPresetChange: (days:
           loading={summaryQuery.isLoading}
         />
       </div>
+      <OperatingRefundTable
+        summary={summaryQuery.data}
+        range={range}
+        loading={summaryQuery.isLoading}
+      />
     </div>
   )
 }

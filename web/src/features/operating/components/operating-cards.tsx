@@ -22,6 +22,7 @@ import {
   Coins,
   Receipt,
   Trophy,
+  Undo2,
   WalletCards,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -43,7 +44,9 @@ import {
 } from '../constants'
 import {
   useDeleteOperatingExpense,
+  useDeleteOperatingRefund,
   useOperatingExpenses,
+  useOperatingRefunds,
 } from '../hooks/use-operating'
 import type { OperatingRange, OperatingSummary } from '../types'
 
@@ -68,8 +71,11 @@ export function OperatingSummaryCards(props: OperatingCardsProps) {
   const { t } = useTranslation()
   const summary = props.summary
 
+  // 现金净流入 = 实收 − 现金退款 − 投入，与规格一致。
   const netInflow = summary
-    ? summary.revenue.amount_cents - summary.cost.amount_cents
+    ? summary.revenue.amount_cents -
+      summary.refund.amount_cents -
+      summary.cost.amount_cents
     : 0
 
   const revenueDesc = () => {
@@ -90,7 +96,7 @@ export function OperatingSummaryCards(props: OperatingCardsProps) {
       key: 'net_inflow',
       title: t('Cash inflow'),
       value: summary ? formatLocalCurrencyAmount(netInflow / 100) : '--',
-      desc: t('Paid amount minus recorded expenses'),
+      desc: t('Paid amount minus refunds and expenses'),
       icon: netInflow < 0 ? ArrowDownToLine : ArrowUpFromLine,
       iconTone: netInflow < 0 ? 'warning' : 'success',
       negative: netInflow < 0,
@@ -411,6 +417,111 @@ export function OperatingExpenseTable(props: OperatingCardsProps) {
         }}
         title={t('Delete this expense record?')}
         desc={t('The expense will be removed from this period total.')}
+        confirmText={t('Delete')}
+        handleConfirm={() => {
+          if (pendingDelete !== null) deleteMutation.mutate(pendingDelete)
+          setPendingDelete(null)
+        }}
+      />
+    </>
+  )
+}
+
+export function OperatingRefundTable(props: OperatingCardsProps) {
+  const { t } = useTranslation()
+  const refundsQuery = useOperatingRefunds(props.range)
+  const deleteMutation = useDeleteOperatingRefund()
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+
+  const renderBody = () => {
+    if (refundsQuery.isLoading) {
+      return <LoadingState inline className='justify-center py-14' />
+    }
+    const refunds = refundsQuery.data ?? []
+    if (refunds.length === 0) {
+      return (
+        <div className='text-muted-foreground py-14 text-center text-sm'>
+          {t('No refunds recorded in this range')}
+        </div>
+      )
+    }
+    return (
+      <div className='overflow-x-auto'>
+        <table className='w-full text-sm'>
+          <thead>
+            <tr className='text-muted-foreground border-border/60 border-b text-left text-xs'>
+              <th className='py-2 pr-3 pl-3 font-medium sm:pl-5'>
+                {t('Date')}
+              </th>
+              <th className='py-2 pr-3 text-right font-medium'>
+                {t('Amount')}
+              </th>
+              <th className='py-2 pr-3 font-medium'>{t('Note')}</th>
+              <th className='py-2 pr-3 font-medium sm:pr-5'>
+                {t('Actions')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {refunds.map((refund) => (
+              <tr
+                key={refund.id}
+                className='border-border/40 hover:bg-muted/30 border-b'
+              >
+                <td className='py-2.5 pr-3 pl-3 tabular-nums sm:pl-5'>
+                  {formatTimestamp(refund.occurred_at)}
+                </td>
+                <td className='py-2.5 pr-3 text-right tabular-nums'>
+                  {formatLocalCurrencyAmount(refund.amount_cents / 100)}
+                </td>
+                <td className='text-muted-foreground max-w-56 truncate py-2.5 pr-3'>
+                  {refund.note || '-'}
+                </td>
+                <td className='py-2.5 pr-3 sm:pr-5'>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    className='text-muted-foreground hover:text-destructive h-7 px-2'
+                    disabled={deleteMutation.isPending}
+                    onClick={() => setPendingDelete(refund.id)}
+                  >
+                    {t('Delete')}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className='overflow-hidden rounded-lg border'>
+        <div className='flex w-full flex-col gap-1.5 border-b px-3 py-2 sm:gap-3 sm:px-5 sm:py-3 lg:flex-row lg:items-center lg:justify-between'>
+          <div className='flex items-center gap-2'>
+            <IconBadge tone='warning' size='sm'>
+              <Undo2 />
+            </IconBadge>
+            <div className='text-sm font-semibold'>{t('Refund records')}</div>
+          </div>
+        </div>
+        <p className='text-muted-foreground/60 border-b px-3 py-2 text-xs sm:px-5'>
+          {t(
+            'Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.'
+          )}
+        </p>
+        {renderBody()}
+      </div>
+      <ConfirmDialog
+        destructive
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null)
+        }}
+        title={t('Delete this refund record?')}
+        desc={t('The refund will be removed from this period total.')}
         confirmText={t('Delete')}
         handleConfirm={() => {
           if (pendingDelete !== null) deleteMutation.mutate(pendingDelete)

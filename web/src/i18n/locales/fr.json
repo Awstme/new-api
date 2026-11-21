@@ -7867,6 +7867,21 @@
     "Expense": "Dépense",
     "Credits": "Crédits",
     "Page {{page}} of {{total}}": "Page {{page}} sur {{total}}",
-    "Income, expenses and issued credits appear here once they happen in the selected range.": "Les revenus, dépenses et crédits accordés apparaissent ici dès qu'ils ont lieu sur la période sélectionnée."
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Les revenus, dépenses et crédits accordés apparaissent ici dès qu'ils ont lieu sur la période sélectionnée.",
+    "Record refund": "Enregistrer un remboursement",
+    "Refunds": "Remboursements",
+    "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.": "Enregistre l'argent réellement remboursé. Cela ne modifie pas le solde de l'utilisateur, car le portefeuille ne distingue pas encore le crédit payé du crédit offert.",
+    "No refunds recorded in this range": "Aucun remboursement sur cette période",
+    "Refund records": "Enregistrements de remboursement",
+    "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.": "Remboursements saisis par un administrateur. Comptés dans les totaux de la période uniquement ; le solde de l'utilisateur n'est pas modifié.",
+    "Delete this refund record?": "Supprimer cet enregistrement de remboursement ?",
+    "The refund will be removed from this period total.": "Le remboursement sera retiré du total de cette période.",
+    "Refund recorded": "Remboursement enregistré",
+    "Invalid operation id": "Identifiant d'opération invalide",
+    "Refund amount must be greater than zero": "Le montant du remboursement doit être supérieur à zéro",
+    "Refund amount is too large": "Le montant du remboursement est trop élevé",
+    "Refund date is required": "La date du remboursement est requise",
+    "Refund note is too long": "La note de remboursement est trop longue",
+    "Paid amount minus refunds and expenses": "Montant payé moins remboursements et dépenses"
   }
 }

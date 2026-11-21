@@ -63,6 +63,8 @@ export interface OperatingSummary {
   end_timestamp: number
   revenue: OperatingRevenue
   cost: OperatingCost
+  /** 期间内的现金退款合计；只记账，不扣减余额。 */
+  refund: OperatingCost
   consumption: OperatingConsumption
   balance: OperatingBalance
   grants: OperatingGrant[]
@@ -110,4 +112,22 @@ export interface OperatingFlowPage {
   page_size: number
   total: number
   items: OperatingFlowEvent[]
+}
+
+/** 现金退款记录。只记账，不扣减钱包余额。 */
+export interface OperatingRefund {
+  id: number
+  operation_id: string
+  amount_cents: number
+  occurred_at: number
+  note: string
+  operator_id: number
+  created_at: number
+}
+
+export interface OperatingRefundPayload {
+  operation_id: string
+  amount_cents: number
+  occurred_at: number
+  note: string
 }

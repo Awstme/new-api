@@ -18,5 +18,8 @@ func setOperatingRouter(apiRouter *gin.RouterGroup) {
 		operatingRoute.GET("/expenses", controller.GetOperatingExpenses)
 		operatingRoute.POST("/expenses", controller.CreateOperatingExpense)
 		operatingRoute.DELETE("/expenses/:id", controller.DeleteOperatingExpense)
+		operatingRoute.GET("/refunds", controller.GetOperatingRefunds)
+		operatingRoute.POST("/refunds", controller.CreateOperatingRefund)
+		operatingRoute.DELETE("/refunds/:id", controller.DeleteOperatingRefund)
 	}
 }

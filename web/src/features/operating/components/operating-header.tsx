@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { CalendarRange, Plus } from 'lucide-react'
+import { CalendarRange, Plus, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -28,12 +28,13 @@ import { OPERATING_RANGE_PRESETS } from '../constants'
 import type { OperatingRange } from '../types'
 
 import { OperatingExpenseDialog } from './operating-expense-dialog'
+import { OperatingRefundDialog } from './operating-refund-dialog'
 
 interface OperatingHeaderProps {
   range: OperatingRange
   activePreset: number
   onPresetChange: (days: number) => void
-  /** 仅概览需要录入支出，流水页只做筛选。 */
+  /** 仅概览需要录入支出与退款，流水页只做筛选。 */
   showExpenseAction?: boolean
 }
 
@@ -41,6 +42,7 @@ interface OperatingHeaderProps {
 export function OperatingHeader(props: OperatingHeaderProps) {
   const { t } = useTranslation()
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false)
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false)
 
   const startLabel = dayjs(props.range.startTimestamp * 1000).format(
     'MM-DD HH:mm'
@@ -67,21 +69,36 @@ export function OperatingHeader(props: OperatingHeaderProps) {
           </span>
         </div>
         {props.showExpenseAction === false ? null : (
-          <Button
-            size='sm'
-            variant='outline'
-            className='h-8'
-            onClick={() => setExpenseDialogOpen(true)}
-          >
-            <Plus className='size-4' aria-hidden='true' />
-            {t('Record expense')}
-          </Button>
+          <div className='flex items-center gap-2'>
+            <Button
+              size='sm'
+              variant='outline'
+              className='h-8'
+              onClick={() => setRefundDialogOpen(true)}
+            >
+              <Undo2 className='size-4' aria-hidden='true' />
+              {t('Record refund')}
+            </Button>
+            <Button
+              size='sm'
+              variant='outline'
+              className='h-8'
+              onClick={() => setExpenseDialogOpen(true)}
+            >
+              <Plus className='size-4' aria-hidden='true' />
+              {t('Record expense')}
+            </Button>
+          </div>
         )}
       </div>
 
       <OperatingExpenseDialog
         open={expenseDialogOpen}
         onOpenChange={setExpenseDialogOpen}
+      />
+      <OperatingRefundDialog
+        open={refundDialogOpen}
+        onOpenChange={setRefundDialogOpen}
       />
     </>
   )

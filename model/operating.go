@@ -2,6 +2,7 @@ package model
 
 import (
 	"cmp"
+	"errors"
 	"regexp"
 	"slices"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 // 经营分析的统计口径：
@@ -97,6 +99,7 @@ type OperatingSummary struct {
 	EndTimestamp   int64                `json:"end_timestamp"`
 	Revenue        OperatingRevenue     `json:"revenue"`
 	Cost           OperatingCost        `json:"cost"`
+	Refund         OperatingCost        `json:"refund"`
 	Consumption    OperatingConsumption `json:"consumption"`
 	Balance        OperatingBalance     `json:"balance"`
 	Grants         []OperatingGrant     `json:"grants"`
@@ -130,6 +133,12 @@ func GetOperatingSummary(startAt, endAt int64) (OperatingSummary, error) {
 		return summary, err
 	}
 	summary.Cost = cost
+
+	refund, err := getOperatingRefund(startAt, endAt)
+	if err != nil {
+		return summary, err
+	}
+	summary.Refund = refund
 
 	// 日志库是独立配置的可清理存储：它不可用时只让消费与发放不完整，
 	// 主库的收入、投入与余额仍然要能看，不能整体失败。
@@ -522,6 +531,29 @@ func DeleteOperatingExpense(id int) error {
 	return expense.Delete()
 }
 
+const (
+	OperatingRefundMaxNoteRunes = 200
+	// OperatingRefundMaxCents 约束单笔退款金额，避免误输入天文数字。
+	OperatingRefundMaxCents int64 = 100_000_000_00
+)
+
+// OperatingRefund 是管理员录入的现金退款。它只记账、不扣减用户余额：
+// 当前钱包是混合余额，无法区分充值额度与赠送额度，扣减可能误退赠送额度，
+// 因此余额调整留待来源追踪实现后再做。
+type OperatingRefund struct {
+	Id          int    `json:"id"`
+	OperationId string `json:"operation_id" gorm:"type:varchar(64);uniqueIndex"`
+	AmountCents int64  `json:"amount_cents"`
+	OccurredAt  int64  `json:"occurred_at" gorm:"bigint;index"`
+	Note        string `json:"note" gorm:"type:varchar(255)"`
+	OperatorId  int    `json:"operator_id"`
+	CreatedAt   int64  `json:"created_at" gorm:"bigint"`
+}
+
+func (refund *OperatingRefund) TableName() string {
+	return "operating_refunds"
+}
+
 // 流水事件把收入、支出、发放归一成同一条时间线的记录。它只回答「这期间发生了
 // 什么」，金额字段的单位随 Kind 不同：income/expense 是人民币分，grant 是额度。
 const (
@@ -864,4 +896,88 @@ func getOperatingUsernames(userIds []int) (map[int]string, error) {
 		usernames[user.Id] = user.Username
 	}
 	return usernames, nil
+}
+
+type OperatingRefundInput struct {
+	OperationId string
+	AmountCents int64
+	OccurredAt  int64
+	Note        string
+	OperatorId  int
+}
+
+func (input OperatingRefundInput) Validate() error {
+	if input.OperationId == "" || len(input.OperationId) > 64 {
+		return common.NewMessage("Invalid operation id")
+	}
+	if input.AmountCents <= 0 {
+		return common.NewMessage("Refund amount must be greater than zero")
+	}
+	if input.AmountCents > OperatingRefundMaxCents {
+		return common.NewMessage("Refund amount is too large")
+	}
+	if input.OccurredAt <= 0 {
+		return common.NewMessage("Refund date is required")
+	}
+	if len([]rune(input.Note)) > OperatingRefundMaxNoteRunes {
+		return common.NewMessage("Refund note is too long")
+	}
+	return nil
+}
+
+// CreateOperatingRefund 记录一笔现金退款。同一个 operation_id 重复提交返回已有
+// 记录，避免重试造成重复记账。
+func CreateOperatingRefund(input OperatingRefundInput) (*OperatingRefund, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	var existing OperatingRefund
+	err := DB.Where("operation_id = ?", input.OperationId).First(&existing).Error
+	if err == nil {
+		return &existing, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	refund := &OperatingRefund{
+		OperationId: input.OperationId,
+		AmountCents: input.AmountCents,
+		OccurredAt:  input.OccurredAt,
+		Note:        input.Note,
+		OperatorId:  input.OperatorId,
+		CreatedAt:   common.GetTimestamp(),
+	}
+	if err := DB.Create(refund).Error; err != nil {
+		// 并发下唯一索引会拒绝第二个提交，此时回读已提交的那一笔。
+		var raced OperatingRefund
+		if readErr := DB.Where("operation_id = ?", input.OperationId).First(&raced).Error; readErr == nil {
+			return &raced, nil
+		}
+		return nil, err
+	}
+	return refund, nil
+}
+
+func GetOperatingRefunds(startAt, endAt int64) ([]OperatingRefund, error) {
+	refunds := make([]OperatingRefund, 0, 16)
+	err := DB.Where("occurred_at >= ? AND occurred_at < ?", startAt, endAt).
+		Order("occurred_at desc, id desc").
+		Find(&refunds).Error
+	return refunds, err
+}
+
+func DeleteOperatingRefund(id int) error {
+	return DB.Delete(&OperatingRefund{}, id).Error
+}
+
+// getOperatingRefund 汇总期间内的现金退款。
+func getOperatingRefund(startAt, endAt int64) (OperatingCost, error) {
+	var refund OperatingCost
+	err := DB.Model(&OperatingRefund{}).
+		Where("occurred_at >= ? AND occurred_at < ?", startAt, endAt).
+		Select("COUNT(*) AS entries, COALESCE(SUM(amount_cents), 0) AS amount_cents").
+		Scan(&refund).Error
+	return refund, err
 }

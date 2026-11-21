@@ -37,6 +37,7 @@ const summary: OperatingSummary = {
     mixed_currency: false,
   },
   cost: { entries: 1, amount_cents: 15_000 },
+  refund: { entries: 0, amount_cents: 0 },
   consumption: { quota: 2_400_000, users: 7 },
   balance: { users: 9, quota: 8_000_000, snapshot_at: 1_700_090_000 },
   grants: [],

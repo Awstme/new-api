@@ -22,12 +22,19 @@ import { handleServerError } from '@/lib/handle-server-error'
 
 import {
   createOperatingExpense,
+  createOperatingRefund,
   deleteOperatingExpense,
+  deleteOperatingRefund,
   getOperatingExpenses,
   getOperatingFlow,
+  getOperatingRefunds,
   getOperatingSummary,
 } from '../api'
-import type { OperatingExpensePayload, OperatingRange } from '../types'
+import type {
+  OperatingExpensePayload,
+  OperatingRange,
+  OperatingRefundPayload,
+} from '../types'
 
 export const operatingSummaryQueryKey = (range: OperatingRange) =>
   [
@@ -92,5 +99,36 @@ export function useOperatingFlow(
     ],
     queryFn: () => getOperatingFlow(range, page, pageSize),
     staleTime: 60 * 1000,
+  })
+}
+
+export function useOperatingRefunds(range: OperatingRange) {
+  return useQuery({
+    queryKey: ['operating', 'refunds', range.startTimestamp, range.endTimestamp],
+    queryFn: () => getOperatingRefunds(range),
+    staleTime: 60 * 1000,
+  })
+}
+
+export function useCreateOperatingRefund() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: OperatingRefundPayload) =>
+      createOperatingRefund(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['operating'] })
+    },
+    onError: (error) => handleServerError(error),
+  })
+}
+
+export function useDeleteOperatingRefund() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => deleteOperatingRefund(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['operating'] })
+    },
+    onError: (error) => handleServerError(error),
   })
 }

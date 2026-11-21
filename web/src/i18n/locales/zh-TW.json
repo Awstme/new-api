@@ -7867,6 +7867,21 @@
     "Expense": "支出",
     "Credits": "額度",
     "Page {{page}} of {{total}}": "第 {{page}} / {{total}} 頁",
-    "Income, expenses and issued credits appear here once they happen in the selected range.": "所選期間內發生的收入、支出與額度發放會顯示在這裡。"
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "所選期間內發生的收入、支出與額度發放會顯示在這裡。",
+    "Record refund": "錄入退款",
+    "Refunds": "現金退款",
+    "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.": "記錄實際退還的現金。它不改變使用者餘額，因為錢包目前無法區分充值額度與贈送額度。",
+    "No refunds recorded in this range": "所選期間沒有退款記錄",
+    "Refund records": "退款記錄",
+    "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.": "由管理員錄入的現金退款。僅計入期間合計，不改變使用者餘額。",
+    "Delete this refund record?": "刪除這筆退款記錄？",
+    "The refund will be removed from this period total.": "該退款將從本期合計中移除。",
+    "Refund recorded": "退款已記錄",
+    "Invalid operation id": "操作標識無效",
+    "Refund amount must be greater than zero": "退款金額必須大於零",
+    "Refund amount is too large": "退款金額過大",
+    "Refund date is required": "請填寫退款日期",
+    "Refund note is too long": "退款備註過長",
+    "Paid amount minus refunds and expenses": "實付金額減去退款與支出"
   }
 }

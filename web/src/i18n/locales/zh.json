@@ -7867,6 +7867,21 @@
     "Expense": "支出",
     "Credits": "额度",
     "Page {{page}} of {{total}}": "第 {{page}} / {{total}} 页",
-    "Income, expenses and issued credits appear here once they happen in the selected range.": "所选期间内发生的收入、支出与额度发放会显示在这里。"
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "所选期间内发生的收入、支出与额度发放会显示在这里。",
+    "Record refund": "录入退款",
+    "Refunds": "现金退款",
+    "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.": "记录实际退还的现金。它不改变用户余额，因为钱包目前无法区分充值额度与赠送额度。",
+    "No refunds recorded in this range": "所选期间没有退款记录",
+    "Refund records": "退款记录",
+    "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.": "由管理员录入的现金退款。仅计入期间合计，不改变用户余额。",
+    "Delete this refund record?": "删除这条退款记录？",
+    "The refund will be removed from this period total.": "该退款将从本期合计中移除。",
+    "Refund recorded": "退款已记录",
+    "Invalid operation id": "操作标识无效",
+    "Refund amount must be greater than zero": "退款金额必须大于零",
+    "Refund amount is too large": "退款金额过大",
+    "Refund date is required": "请填写退款日期",
+    "Refund note is too long": "退款备注过长",
+    "Paid amount minus refunds and expenses": "实付金额减去退款与支出"
   }
 }

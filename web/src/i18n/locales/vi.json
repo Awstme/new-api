@@ -7867,6 +7867,21 @@
     "Expense": "Chi phí",
     "Credits": "Hạn mức",
     "Page {{page}} of {{total}}": "Trang {{page}} / {{total}}",
-    "Income, expenses and issued credits appear here once they happen in the selected range.": "Thu nhập, chi phí và hạn mức đã cấp trong kỳ sẽ hiển thị ở đây."
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Thu nhập, chi phí và hạn mức đã cấp trong kỳ sẽ hiển thị ở đây.",
+    "Record refund": "Ghi hoàn tiền",
+    "Refunds": "Hoàn tiền",
+    "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.": "Ghi số tiền thực tế đã hoàn. Không thay đổi số dư người dùng vì ví chưa phân biệt được hạn mức trả phí và hạn mức tặng.",
+    "No refunds recorded in this range": "Không có hoàn tiền nào trong kỳ này",
+    "Refund records": "Bản ghi hoàn tiền",
+    "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.": "Hoàn tiền do quản trị viên nhập. Chỉ tính vào tổng của kỳ; không thay đổi số dư người dùng.",
+    "Delete this refund record?": "Xóa bản ghi hoàn tiền này?",
+    "The refund will be removed from this period total.": "Khoản hoàn tiền sẽ bị loại khỏi tổng của kỳ này.",
+    "Refund recorded": "Đã ghi hoàn tiền",
+    "Invalid operation id": "Mã thao tác không hợp lệ",
+    "Refund amount must be greater than zero": "Số tiền hoàn phải lớn hơn 0",
+    "Refund amount is too large": "Số tiền hoàn quá lớn",
+    "Refund date is required": "Cần nhập ngày hoàn tiền",
+    "Refund note is too long": "Ghi chú hoàn tiền quá dài",
+    "Paid amount minus refunds and expenses": "Số tiền đã trả trừ hoàn tiền và chi phí"
   }
 }

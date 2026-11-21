@@ -7867,6 +7867,21 @@
     "Expense": "Расход",
     "Credits": "Квота",
     "Page {{page}} of {{total}}": "Страница {{page}} из {{total}}",
-    "Income, expenses and issued credits appear here once they happen in the selected range.": "Доходы, расходы и начисленная квота за выбранный период появятся здесь."
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Доходы, расходы и начисленная квота за выбранный период появятся здесь.",
+    "Record refund": "Внести возврат",
+    "Refunds": "Возвраты",
+    "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.": "Записывает фактически возвращённые деньги. Баланс пользователя не меняется: кошелёк пока не различает платную и бесплатную квоту.",
+    "No refunds recorded in this range": "За выбранный период возвратов нет",
+    "Refund records": "Записи возвратов",
+    "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.": "Возвраты, внесённые администратором. Учитываются только в итогах периода; баланс пользователя не меняется.",
+    "Delete this refund record?": "Удалить эту запись возврата?",
+    "The refund will be removed from this period total.": "Возврат будет исключён из итога за период.",
+    "Refund recorded": "Возврат внесён",
+    "Invalid operation id": "Недопустимый идентификатор операции",
+    "Refund amount must be greater than zero": "Сумма возврата должна быть больше нуля",
+    "Refund amount is too large": "Сумма возврата слишком велика",
+    "Refund date is required": "Дата возврата обязательна",
+    "Refund note is too long": "Примечание к возврату слишком длинное",
+    "Paid amount minus refunds and expenses": "Оплаченная сумма минус возвраты и расходы"
   }
 }

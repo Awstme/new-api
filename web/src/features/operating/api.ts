@@ -24,6 +24,8 @@ import type {
   OperatingExpensePayload,
   OperatingFlowPage,
   OperatingRange,
+  OperatingRefund,
+  OperatingRefundPayload,
   OperatingSummary,
 } from './types'
 
@@ -74,4 +76,26 @@ export async function getOperatingFlow(
     { params: { ...rangeParams(range), page, page_size: pageSize } }
   )
   return requireServerSuccess(res.data).data
+}
+
+export async function getOperatingRefunds(range: OperatingRange) {
+  const res = await api.get<{ success: boolean; data: OperatingRefund[] }>(
+    '/api/operating/refunds',
+    { params: rangeParams(range) }
+  )
+  return requireServerSuccess(res.data).data
+}
+
+export async function createOperatingRefund(payload: OperatingRefundPayload) {
+  const res = await api.post<{ success: boolean; data: OperatingRefund }>(
+    '/api/operating/refunds',
+    payload
+  )
+  return requireServerSuccess(res.data).data
+}
+
+export async function deleteOperatingRefund(id: number) {
+  requireServerSuccess(
+    (await api.delete<{ success: boolean }>(`/api/operating/refunds/${id}`)).data
+  )
 }

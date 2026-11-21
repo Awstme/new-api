@@ -63,13 +63,13 @@ func setupOperatingTestDB(t *testing.T, dialect string) {
 	previousDB, previousLogDB := DB, LOG_DB
 	DB, LOG_DB = db, db
 
-	tables := []any{&User{}, &TopUp{}, &Checkin{}, &Redemption{}, &OperatingExpense{}, &Log{}}
+	tables := []any{&User{}, &TopUp{}, &Checkin{}, &Redemption{}, &OperatingExpense{}, &OperatingRefund{}, &Log{}}
 	for _, table := range tables {
 		if db.Migrator().HasTable(table) {
 			require.NoError(t, db.Migrator().DropTable(table))
 		}
 	}
-	require.NoError(t, DB.AutoMigrate(&User{}, &TopUp{}, &Checkin{}, &Redemption{}, &OperatingExpense{}))
+	require.NoError(t, DB.AutoMigrate(&User{}, &TopUp{}, &Checkin{}, &Redemption{}, &OperatingExpense{}, &OperatingRefund{}))
 	require.NoError(t, LOG_DB.AutoMigrate(&Log{}))
 
 	t.Cleanup(func() {
@@ -371,6 +371,68 @@ func TestOperatingFlowTimeline(t *testing.T) {
 			beyond, err := GetOperatingFlow(startAt, endAt, 999, 20)
 			require.NoError(t, err)
 			assert.Empty(t, beyond.Items)
+		})
+	}
+}
+
+// TestOperatingRefundIdempotent 固定退款只记账不动余额，且同一 operation_id 重复
+// 提交返回同一笔记录，不产生第二笔台账。
+func TestOperatingRefundIdempotent(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			setupOperatingTestDB(t, dialect)
+			startAt := int64(1_700_000_000)
+
+			input := OperatingRefundInput{
+				OperationId: "refund-op-1",
+				AmountCents: 12_300,
+				OccurredAt:  startAt + 10,
+				Note:        "duplicate charge",
+				OperatorId:  1,
+			}
+
+			first, err := CreateOperatingRefund(input)
+			require.NoError(t, err)
+			require.NotZero(t, first.Id)
+
+			// 重试同一笔：应返回原记录，而不是新增一条。
+			second, err := CreateOperatingRefund(input)
+			require.NoError(t, err)
+			assert.EqualValues(t, first.Id, second.Id)
+
+			var count int64
+			require.NoError(t, DB.Model(&OperatingRefund{}).Count(&count).Error)
+			assert.EqualValues(t, 1, count)
+
+			// 退款不触碰钱包余额：这里没有任何余额变更路径。
+			refunds, err := GetOperatingRefunds(startAt, startAt+60)
+			require.NoError(t, err)
+			require.Len(t, refunds, 1)
+			assert.EqualValues(t, 12_300, refunds[0].AmountCents)
+
+			require.NoError(t, DeleteOperatingRefund(first.Id))
+			refunds, err = GetOperatingRefunds(startAt, startAt+60)
+			require.NoError(t, err)
+			assert.Empty(t, refunds)
+		})
+	}
+}
+
+func TestCreateOperatingRefundRejectsInvalidInput(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			setupOperatingTestDB(t, dialect)
+
+			for _, input := range []OperatingRefundInput{
+				{OperationId: "", AmountCents: 100, OccurredAt: 1_700_000_000},
+				{OperationId: "op", AmountCents: 0, OccurredAt: 1_700_000_000},
+				{OperationId: "op", AmountCents: -5, OccurredAt: 1_700_000_000},
+				{OperationId: "op", AmountCents: OperatingRefundMaxCents + 1, OccurredAt: 1_700_000_000},
+				{OperationId: "op", AmountCents: 100, OccurredAt: 0},
+			} {
+				_, err := CreateOperatingRefund(input)
+				require.Error(t, err)
+			}
 		})
 	}
 }

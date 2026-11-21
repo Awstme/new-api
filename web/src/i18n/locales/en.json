@@ -7867,6 +7867,21 @@
     "Expense": "Expense",
     "Credits": "Credits",
     "Page {{page}} of {{total}}": "Page {{page}} of {{total}}",
-    "Income, expenses and issued credits appear here once they happen in the selected range.": "Income, expenses and issued credits appear here once they happen in the selected range."
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Income, expenses and issued credits appear here once they happen in the selected range.",
+    "Record refund": "Record refund",
+    "Refunds": "Refunds",
+    "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.": "Records cash actually refunded. It does not change the user balance, because the wallet cannot tell paid credit from free credit yet.",
+    "No refunds recorded in this range": "No refunds recorded in this range",
+    "Refund records": "Refund records",
+    "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.": "Cash refunds entered by an administrator. Recorded for the period totals only; the user balance is not changed.",
+    "Delete this refund record?": "Delete this refund record?",
+    "The refund will be removed from this period total.": "The refund will be removed from this period total.",
+    "Refund recorded": "Refund recorded",
+    "Invalid operation id": "Invalid operation id",
+    "Refund amount must be greater than zero": "Refund amount must be greater than zero",
+    "Refund amount is too large": "Refund amount is too large",
+    "Refund date is required": "Refund date is required",
+    "Refund note is too long": "Refund note is too long",
+    "Paid amount minus refunds and expenses": "Paid amount minus refunds and expenses"
   }
 }
