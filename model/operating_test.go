@@ -93,6 +93,8 @@ func seedOperatingSummary(t *testing.T, startAt, endAt int64) {
 		{UserId: 1, Amount: 2, Money: 1.8, TradeNo: "t1", Status: common.TopUpStatusSuccess, PaymentProvider: PaymentProviderEpay, CompleteTime: startAt + 60},
 		{UserId: 2, Amount: 100_000, Money: 10, TradeNo: "t2", Status: common.TopUpStatusSuccess, PaymentProvider: PaymentProviderCreem, CompleteTime: startAt + 120},
 		{UserId: 3, Amount: 5, Money: 5, TradeNo: "t3", Status: common.TopUpStatusPending, PaymentProvider: PaymentProviderEpay, CompleteTime: startAt + 180},
+		// 折扣组让人民币实付折算后的到账额度带小数；曾经按 int64 扫描会直接报错。
+		{UserId: 6, Amount: 222.3499999999999967, Money: 222.3499999999999967, TradeNo: "t5", Status: common.TopUpStatusSuccess, PaymentProvider: PaymentProviderCreem, CompleteTime: startAt + 200},
 		{UserId: 4, Amount: 5, Money: 5, TradeNo: "t4", Status: common.TopUpStatusSuccess, PaymentProvider: PaymentProviderEpay, CompleteTime: endAt + 10},
 	}
 	require.NoError(t, DB.Create(&topUps).Error)
@@ -160,12 +162,14 @@ func TestGetOperatingSummary(t *testing.T) {
 			summary, err := GetOperatingSummary(startAt, endAt)
 			require.NoError(t, err)
 
-			assert.EqualValues(t, 2, summary.Revenue.Orders)
-			// Epay 的 money 已是人民币（1.8）；Creem 的 10 是美元，按 Price 换算。
+			assert.EqualValues(t, 3, summary.Revenue.Orders)
+			// Epay 的 money 已是人民币（1.8）；Creem 的 10 与 222.35 是美元，按汇率换算。
 			rate := operation_setting.USDExchangeRate
-			assert.EqualValues(t, int64(1.8*100)+int64(10*rate*100), summary.Revenue.AmountCents)
+			expectedCents := int64(1.8*100) + int64((10+222.3499999999999967)*rate*100)
+			assert.EqualValues(t, expectedCents, summary.Revenue.AmountCents)
 			assert.True(t, summary.Revenue.MixedCurrency)
-			assert.EqualValues(t, 100_000+int64(common.QuotaPerUnit*2), summary.Revenue.CreditedQuota)
+			// Creem 的额度直接取 amount，小数按 WalletQuotaFromDecimalStrict 取整。
+			assert.EqualValues(t, 100_000+int64(common.QuotaPerUnit*2)+222, summary.Revenue.CreditedQuota)
 
 			assert.EqualValues(t, 2, summary.Cost.Entries)
 			assert.EqualValues(t, 789_000, summary.Cost.AmountCents)
@@ -192,8 +196,8 @@ func TestGetOperatingSummary(t *testing.T) {
 			assert.EqualValues(t, 500_000, byKey["signup"].Quota)
 			assert.EqualValues(t, 2, byKey["invite"].Count)
 			assert.EqualValues(t, 300_000, byKey["invite"].Quota)
-			assert.EqualValues(t, 2, byKey["paid"].Count)
-			assert.EqualValues(t, 100_000+int64(common.QuotaPerUnit*2), byKey["paid"].Quota)
+			assert.EqualValues(t, 3, byKey["paid"].Count)
+			assert.EqualValues(t, 100_000+int64(common.QuotaPerUnit*2)+222, byKey["paid"].Quota)
 		})
 	}
 }

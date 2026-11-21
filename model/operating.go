@@ -165,8 +165,9 @@ func getOperatingRevenue(startAt, endAt int64) (OperatingRevenue, error) {
 	var rows []struct {
 		Provider string
 		Orders   int64
-		Amount   int64
-		Money    float64
+		// amount 是到账额度；折扣组允许人民币实付折算后为小数，因此是 float64。
+		Amount float64
+		Money  float64
 	}
 	err := DB.Model(&TopUp{}).
 		Where("status = ? AND complete_time >= ? AND complete_time < ?", common.TopUpStatusSuccess, startAt, endAt).
@@ -229,12 +230,16 @@ func operatingRevenueCents(provider string, money float64) int64 {
 }
 
 // operatingCreditedQuota 复现各渠道把订单字段换算成入账额度的规则。
-func operatingCreditedQuota(provider string, amount int64, money float64) (int64, error) {
+func operatingCreditedQuota(provider string, amount, money float64) (int64, error) {
 	if provider == PaymentProviderCreem {
 		// Creem 的产品额度直接存在 amount 上，不按 QuotaPerUnit 换算。
-		return amount, nil
+		credited, err := common.WalletQuotaFromDecimalStrict(decimal.NewFromFloat(amount))
+		if err != nil {
+			return 0, err
+		}
+		return int64(credited), nil
 	}
-	base := decimal.NewFromInt(amount)
+	base := decimal.NewFromFloat(amount)
 	if provider == PaymentProviderStripe {
 		// Stripe 的 amount 是用户填写的金额，实际到账按折后 money 计算。
 		base = decimal.NewFromFloat(money)
