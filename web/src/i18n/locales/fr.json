@@ -7781,6 +7781,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Original price": "Prix d'origine",
+    "Model Discounts": "Remises sur les modèles",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "Les groupes de remise appliquent un multiplicateur promotionnel aux modèles sélectionnés. La place du modèle affiche le prix d'origine et le prix remisé.",
+    "No discount groups configured": "Aucun groupe de remise configuré",
+    "Add discount group": "Ajouter un groupe de remise",
+    "Discount (%)": "Remise (%)",
+    "Discount must be greater than 0 and at most 100": "La remise doit être supérieure à 0 et au plus 100",
+    "Each model can belong to only one enabled discount group": "Un modèle ne peut appartenir qu'à un seul groupe de remise actif",
+    "Discount group name is required": "Le nom du groupe de remise est requis",
+    "Discount group must include at least one model": "Le groupe de remise doit inclure au moins un modèle",
+    "Discount group model must not be empty": "Le nom du modèle du groupe de remise ne doit pas être vide",
+    "Invalid discount group configuration": "Configuration du groupe de remise invalide",
+    "Discount must be greater than 0 and at most 1": "La remise doit être supérieure à 0 et au plus 1",
+    "Model {{model}} appears in multiple discount groups": "Le modèle {{model}} apparaît dans plusieurs groupes de remise"
   }
 }

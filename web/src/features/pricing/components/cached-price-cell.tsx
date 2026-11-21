@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { DEFAULT_TOKEN_UNIT } from '../constants'
@@ -28,7 +29,7 @@ import {
   getDynamicPricingSummary,
   isUnconfiguredTaskUsageModel,
 } from '../lib/dynamic-price'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { getModelDiscountRatio, isTokenBasedModel } from '../lib/model-helpers'
 import { withBasePricing } from '../lib/plugin-pricing'
 import { formatPrice, stripTrailingZeros } from '../lib/price'
 import type { PricingModel } from '../types'
@@ -52,6 +53,9 @@ export function CachedPriceCell(props: {
   const model = useMemo(() => withBasePricing(props.model), [props.model])
   const currency = useSystemConfigStore((state) => state.config.currency)
   const billingTime = useBillingTime(model.billing_expr)
+  const baseGroupRatio = getDynamicDisplayGroupRatio(model, selectedGroup)
+  const discountRatio = getModelDiscountRatio(model)
+  const hasDiscount = discountRatio < 1
   const dynamicSummary = useMemo(
     () =>
       getDynamicPricingSummary(model, {
@@ -60,7 +64,7 @@ export function CachedPriceCell(props: {
         showRechargePrice,
         priceRate,
         usdExchangeRate,
-        groupRatioMultiplier: getDynamicDisplayGroupRatio(model, selectedGroup),
+        groupRatioMultiplier: baseGroupRatio,
       }),
     // Currency is read indirectly by the price formatter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,14 +74,42 @@ export function CachedPriceCell(props: {
       showRechargePrice,
       priceRate,
       usdExchangeRate,
-      selectedGroup,
+      baseGroupRatio,
       billingTime,
       currency,
     ]
   )
+  const discountedSummary = useMemo(
+    () =>
+      hasDiscount
+        ? getDynamicPricingSummary(model, {
+            now: billingTime === undefined ? undefined : new Date(billingTime),
+            tokenUnit,
+            showRechargePrice,
+            priceRate,
+            usdExchangeRate,
+            groupRatioMultiplier: baseGroupRatio * discountRatio,
+          })
+        : undefined,
+    // Currency is read indirectly by the price formatter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      model,
+      tokenUnit,
+      showRechargePrice,
+      priceRate,
+      usdExchangeRate,
+      baseGroupRatio,
+      discountRatio,
+      hasDiscount,
+      billingTime,
+      currency,
+    ]
+  )
+  const displaySummary = hasDiscount ? discountedSummary : dynamicSummary
 
-  if (dynamicSummary) {
-    if (dynamicSummary.isSpecialExpression) {
+  if (displaySummary) {
+    if (displaySummary.isSpecialExpression) {
       return (
         <span className='text-muted-foreground/50 text-xs'>
           {t('Special billing expression')}
@@ -85,7 +117,7 @@ export function CachedPriceCell(props: {
       )
     }
 
-    const cacheEntries = dynamicSummary.entries.filter(
+    const cacheEntries = displaySummary.entries.filter(
       (entry) =>
         entry.field === 'cacheReadPrice' || entry.field === 'imageCachePrice'
     )
@@ -95,26 +127,47 @@ export function CachedPriceCell(props: {
 
     return (
       <div className='max-w-full min-w-0'>
-        {cacheEntries.map((entry) => (
-          <div
-            key={entry.field}
-            className='flex flex-wrap items-baseline gap-x-1'
-          >
-            {(cacheEntries.length > 1 || entry.field === 'imageCachePrice') && (
-              <span className='text-muted-foreground text-xs'>
-                {entry.field === 'imageCachePrice'
-                  ? t('Image Cache')
-                  : t('Cache Read')}
+        {cacheEntries.map((entry) => {
+          const originalEntry = hasDiscount
+            ? dynamicSummary?.entries.find(
+                (candidate) => candidate.field === entry.field
+              )
+            : undefined
+          return (
+            <div
+              key={entry.field}
+              className='flex flex-wrap items-baseline gap-x-1'
+            >
+              {(cacheEntries.length > 1 ||
+                entry.field === 'imageCachePrice') && (
+                <span className='text-muted-foreground text-xs'>
+                  {entry.field === 'imageCachePrice'
+                    ? t('Image Cache')
+                    : t('Cache Read')}
+                </span>
+              )}
+              <span className='font-mono text-sm tabular-nums'>
+                {stripTrailingZeros(entry.formatted)}
               </span>
-            )}
-            <span className='font-mono text-sm tabular-nums'>
-              {stripTrailingZeros(entry.formatted)}
-            </span>
-          </div>
-        ))}
+              {originalEntry && (
+                <span
+                  className='text-muted-foreground/60 font-mono text-xs tabular-nums line-through'
+                  title={t('Original price')}
+                >
+                  {stripTrailingZeros(originalEntry.formatted)}
+                </span>
+              )}
+            </div>
+          )
+        })}
         <div className='text-muted-foreground/50 text-[10px]'>
           / {tokenUnitLabel}
         </div>
+        {hasDiscount && model.discount_group && (
+          <Badge variant='warning' className='mt-1'>
+            {model.discount_group}
+          </Badge>
+        )}
       </div>
     )
   }
@@ -137,16 +190,44 @@ export function CachedPriceCell(props: {
       showRechargePrice,
       priceRate,
       usdExchangeRate,
-      selectedGroup
+      selectedGroup,
+      true,
+      hasDiscount ? discountRatio : 1
     )
   )
+  const originalCachedPrice = hasDiscount
+    ? stripTrailingZeros(
+        formatPrice(
+          model,
+          'cache',
+          tokenUnit,
+          showRechargePrice,
+          priceRate,
+          usdExchangeRate,
+          selectedGroup
+        )
+      )
+    : undefined
 
   return (
     <div className='max-w-full min-w-0'>
       <span className='font-mono text-sm tabular-nums'>{cachedPrice}</span>
+      {originalCachedPrice && (
+        <span
+          className='text-muted-foreground/60 ml-1 font-mono text-xs tabular-nums line-through'
+          title={t('Original price')}
+        >
+          {originalCachedPrice}
+        </span>
+      )}
       <div className='text-muted-foreground/50 text-[10px]'>
         / {tokenUnitLabel}
       </div>
+      {hasDiscount && model.discount_group && (
+        <Badge variant='warning' className='mt-1'>
+          {model.discount_group}
+        </Badge>
+      )}
     </div>
   )
 }

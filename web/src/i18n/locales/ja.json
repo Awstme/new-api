@@ -7781,6 +7781,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Original price": "通常価格",
+    "Model Discounts": "モデル割引",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "割引グループは選択したモデルにプロモーション倍率を適用します。モデル広場には通常価格と割引価格の両方が表示されます。",
+    "No discount groups configured": "割引グループが設定されていません",
+    "Add discount group": "割引グループを追加",
+    "Discount (%)": "割引（%）",
+    "Discount must be greater than 0 and at most 100": "割引は 0 より大きく 100 以下である必要があります",
+    "Each model can belong to only one enabled discount group": "各モデルは有効な割引グループを 1 つだけ持てます",
+    "Discount group name is required": "割引グループ名は必須です",
+    "Discount group must include at least one model": "割引グループには少なくとも 1 つのモデルが必要です",
+    "Discount group model must not be empty": "割引グループのモデル名は空にできません",
+    "Invalid discount group configuration": "割引グループの設定が無効です",
+    "Discount must be greater than 0 and at most 1": "割引は 0 より大きく 1 以下である必要があります",
+    "Model {{model}} appears in multiple discount groups": "モデル {{model}} が複数の割引グループに含まれています"
   }
 }

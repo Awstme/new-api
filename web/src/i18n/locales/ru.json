@@ -7781,6 +7781,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Original price": "Исходная цена",
+    "Model Discounts": "Скидки на модели",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "Группы скидок применяют промо-множитель к выбранным моделям. В каталоге отображаются исходная и сниженная цены.",
+    "No discount groups configured": "Группы скидок не настроены",
+    "Add discount group": "Добавить группу скидок",
+    "Discount (%)": "Скидка (%)",
+    "Discount must be greater than 0 and at most 100": "Скидка должна быть больше 0 и не более 100",
+    "Each model can belong to only one enabled discount group": "Модель может входить только в одну активную группу скидок",
+    "Discount group name is required": "Укажите название группы скидок",
+    "Discount group must include at least one model": "Группа скидок должна содержать хотя бы одну модель",
+    "Discount group model must not be empty": "Название модели в группе скидок не должно быть пустым",
+    "Invalid discount group configuration": "Неверная конфигурация группы скидок",
+    "Discount must be greater than 0 and at most 1": "Скидка должна быть больше 0 и не более 1",
+    "Model {{model}} appears in multiple discount groups": "Модель {{model}} присутствует в нескольких группах скидок"
   }
 }

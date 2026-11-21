@@ -7781,6 +7781,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Original price": "Giá gốc",
+    "Model Discounts": "Giảm giá mô hình",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "Nhóm giảm giá áp dụng hệ số khuyến mại cho các mô hình đã chọn. Chợ mô hình hiển thị cả giá gốc và giá giảm.",
+    "No discount groups configured": "Chưa cấu hình nhóm giảm giá",
+    "Add discount group": "Thêm nhóm giảm giá",
+    "Discount (%)": "Giảm giá (%)",
+    "Discount must be greater than 0 and at most 100": "Giảm giá phải lớn hơn 0 và tối đa 100",
+    "Each model can belong to only one enabled discount group": "Mỗi mô hình chỉ có thể thuộc một nhóm giảm giá đang bật",
+    "Discount group name is required": "Cần nhập tên nhóm giảm giá",
+    "Discount group must include at least one model": "Nhóm giảm giá phải có ít nhất một mô hình",
+    "Discount group model must not be empty": "Tên mô hình trong nhóm giảm giá không được để trống",
+    "Invalid discount group configuration": "Cấu hình nhóm giảm giá không hợp lệ",
+    "Discount must be greater than 0 and at most 1": "Giảm giá phải lớn hơn 0 và tối đa 1",
+    "Model {{model}} appears in multiple discount groups": "Mô hình {{model}} xuất hiện trong nhiều nhóm giảm giá"
   }
 }

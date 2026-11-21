@@ -7781,6 +7781,20 @@
     "Zhipu": "智譜",
     "Zhipu GLM": "智譜GLM",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Original price": "原價",
+    "Model Discounts": "模型折扣",
+    "Discount groups apply a promotional multiplier to selected models. The model square shows both the original and discounted prices.": "折扣分組會對手選模型套用促銷倍率，模型廣場同時顯示原價和折後價。",
+    "No discount groups configured": "尚未設定折扣分組",
+    "Add discount group": "新增折扣分組",
+    "Discount (%)": "折扣（%）",
+    "Discount must be greater than 0 and at most 100": "折扣必須大於 0 且不超過 100%",
+    "Each model can belong to only one enabled discount group": "每個模型只能屬於一個啟用的折扣分組",
+    "Discount group name is required": "請填寫折扣分組名稱",
+    "Discount group must include at least one model": "折扣分組至少包含一個模型",
+    "Discount group model must not be empty": "折扣分組的模型名稱不能為空",
+    "Invalid discount group configuration": "折扣分組設定格式無效",
+    "Discount must be greater than 0 and at most 1": "折扣必須大於 0 且不超過 1",
+    "Model {{model}} appears in multiple discount groups": "模型 {{model}} 出現在多個折扣分組中"
   }
 }

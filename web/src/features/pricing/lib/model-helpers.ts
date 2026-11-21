@@ -102,6 +102,34 @@ export function replaceModelInPath(path: string, modelName: string): string {
 }
 
 /**
+ * Resolve the promotional discount ratio of a model, defaulting to 1.
+ */
+export function getModelDiscountRatio(model: PricingModel): number {
+  const ratio = model.discount_ratio
+  if (
+    typeof ratio === 'number' &&
+    Number.isFinite(ratio) &&
+    ratio > 0 &&
+    ratio < 1
+  ) {
+    return ratio
+  }
+  return 1
+}
+
+/**
+ * Group ratio that already includes the model's promotional discount.
+ */
+export function getDiscountedDisplayGroupRatio(
+  model: PricingModel,
+  selectedGroup?: string
+): number {
+  return (
+    getDisplayGroupRatio(model, selectedGroup) * getModelDiscountRatio(model)
+  )
+}
+
+/**
  * Check if model is token-based pricing
  */
 export function isTokenBasedModel(model: PricingModel): boolean {

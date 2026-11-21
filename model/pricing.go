@@ -53,7 +53,9 @@ type Pricing struct {
 	// OrdinaryPricing reports that requests outside the plugin variants still
 	// pay the model-level price: chat requests to a plugin relaying the model,
 	// or requests to ordinary channels.
-	OrdinaryPricing bool `json:"ordinary_pricing,omitempty"`
+	OrdinaryPricing bool    `json:"ordinary_pricing,omitempty"`
+	DiscountRatio   float64 `json:"discount_ratio,omitempty"`
+	DiscountGroup   string  `json:"discount_group,omitempty"`
 }
 
 type PricingVendor struct {
@@ -419,6 +421,10 @@ func updatePricing() {
 					pricing.BillingExpr = expr
 				}
 			}
+		}
+		if discount, groupName, ok := billing_setting.GetModelDiscount(model); ok {
+			pricing.DiscountRatio = discount
+			pricing.DiscountGroup = groupName
 		}
 		usageModel := model
 		plugin, ok := pluginGeneration.GetByModel(model)

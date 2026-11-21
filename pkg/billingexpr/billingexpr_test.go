@@ -1196,3 +1196,23 @@ func TestFrontendSimulationContract(t *testing.T) {
 		})
 	}
 }
+
+func TestComputeTieredQuotaAppliesModelDiscount(t *testing.T) {
+	const expression = `tier("standard", p * 2 + c * 10)`
+	snap := &billingexpr.BillingSnapshot{
+		BillingMode:               "tiered_expr",
+		ExprString:                expression,
+		ExprHash:                  billingexpr.ExprHashString(expression),
+		GroupRatio:                1.2,
+		EstimatedQuotaBeforeGroup: (1000.0*2 + 500.0*10) / 1_000_000 * 500_000,
+		QuotaPerUnit:              500_000,
+		DiscountRatio:             0.4,
+	}
+
+	result, err := billingexpr.ComputeTieredQuota(snap, billingexpr.TokenParams{P: 1000, C: 500})
+	require.NoError(t, err)
+
+	wantBefore := (1000.0*2 + 500.0*10) / 1_000_000 * 500_000
+	assert.InDelta(t, wantBefore, result.ActualQuotaBeforeGroup, 1e-6)
+	assert.Equal(t, billingexpr.QuotaRound(wantBefore*1.2*0.4), result.ActualQuotaAfterGroup)
+}
