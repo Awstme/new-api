@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate, useParams } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState } from '@/components/error-state'
@@ -31,7 +31,11 @@ import {
 } from './components/operating-cards'
 import { OperatingFlowTable } from './components/operating-flow-table'
 import { OperatingHeader } from './components/operating-header'
-import { buildOperatingRange } from './constants'
+import {
+  beijingDayKey,
+  buildOperatingRange,
+  OPERATING_DEFAULT_RANGE_DAYS,
+} from './constants'
 import { useOperatingSummary } from './hooks/use-operating'
 import {
   type OperatingSectionId,
@@ -92,7 +96,7 @@ export function Operating() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const params = useParams({ from: '/_authenticated/operating/$section' })
-  const [activePreset, setActivePreset] = useState(0)
+  const [activePreset, setActivePreset] = useState(OPERATING_DEFAULT_RANGE_DAYS)
 
   const requestedSection = params.section as string
   const section: OperatingSectionId = (
@@ -100,7 +104,20 @@ export function Operating() {
   ).includes(requestedSection)
     ? (requestedSection as OperatingSectionId)
     : OPERATING_DEFAULT_SECTION
-  const range = useMemo(() => buildOperatingRange(activePreset), [activePreset])
+  // 「今日」是相对现在的区间；跨日或跨月后必须重算，否则页面会一直停在旧区间。
+  const [rangeAnchor, setRangeAnchor] = useState(() => beijingDayKey())
+  const range = useMemo(
+    () => buildOperatingRange(activePreset, new Date(rangeAnchor)),
+    [activePreset, rangeAnchor]
+  )
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const key = beijingDayKey()
+      setRangeAnchor((prev) => (prev === key ? prev : key))
+    }, 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const handleSectionChange = (next: string) => {
     void navigate({

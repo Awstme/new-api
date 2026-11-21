@@ -18,13 +18,28 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { OperatingRange } from './types'
 
-/** 快捷区间，天数为 0 表示北京时间本月。 */
+/**
+ * 快捷区间，days 为含今天在内的天数：1 是今日（北京时间当天 0 点至今），
+ * 0 表示北京时间本月。默认选中首项「今日」。
+ */
 export const OPERATING_RANGE_PRESETS = [
+  { labelKey: 'Today', days: 1 },
   { labelKey: 'Current month', days: 0 },
   { labelKey: 'Last 7 days', days: 7 },
   { labelKey: 'Last 30 days', days: 30 },
   { labelKey: 'Last 90 days', days: 90 },
 ] as const
+
+/** 默认选中的区间天数，与 OPERATING_RANGE_PRESETS 首项保持一致。 */
+export const OPERATING_DEFAULT_RANGE_DAYS = 1
+
+/**
+ * 北京时间的日期键，用于检测跨日：区间是相对「现在」的，跨日之后必须重算。
+ */
+export function beijingDayKey(now = new Date()): string {
+  const offsetMs = 8 * 60 * 60 * 1000
+  return new Date(now.getTime() + offsetMs).toISOString().slice(0, 10)
+}
 
 /** 发放来源的展示顺序与文案键。 */
 export const OPERATING_GRANT_ORDER = [
