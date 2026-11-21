@@ -16,36 +16,49 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useNavigate, useParams } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import {
   OperatingExpenseTable,
   OperatingGrantTable,
   OperatingSummaryCards,
 } from './components/operating-cards'
+import { OperatingFlowTable } from './components/operating-flow-table'
 import { OperatingHeader } from './components/operating-header'
 import { buildOperatingRange } from './constants'
 import { useOperatingSummary } from './hooks/use-operating'
+import {
+  type OperatingSectionId,
+  OPERATING_DEFAULT_SECTION,
+  OPERATING_SECTION_IDS,
+} from './section-registry'
 
-export function Operating() {
+const SECTION_META = {
+  overview: { titleKey: 'Operating Analysis' },
+  flow: { titleKey: 'Flow records' },
+} as const
+
+function OperatingOverview(props: { activePreset: number; onPresetChange: (days: number) => void }) {
   const { t } = useTranslation()
-  const [activePreset, setActivePreset] = useState(0)
-
-  const range = useMemo(() => buildOperatingRange(activePreset), [activePreset])
+  const range = useMemo(() => buildOperatingRange(props.activePreset), [props.activePreset])
   const summaryQuery = useOperatingSummary(range)
 
-  const content = summaryQuery.isError ? (
-    <ErrorState title={t('Failed to load operating data')} />
-  ) : (
+  if (summaryQuery.isError) {
+    return <ErrorState title={t('Failed to load operating data')} />
+  }
+
+  return (
     <div className='space-y-3 sm:space-y-4'>
       <OperatingHeader
         range={range}
-        activePreset={activePreset}
-        onPresetChange={setActivePreset}
+        activePreset={props.activePreset}
+        onPresetChange={props.onPresetChange}
       />
       {summaryQuery.data?.logs_available === false ? (
         <div className='text-muted-foreground rounded-lg border px-3 py-2 text-xs sm:px-5'>
@@ -73,11 +86,63 @@ export function Operating() {
       </div>
     </div>
   )
+}
+
+export function Operating() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const params = useParams({ from: '/_authenticated/operating/$section' })
+  const [activePreset, setActivePreset] = useState(0)
+
+  const requestedSection = params.section as string
+  const section: OperatingSectionId = (
+    OPERATING_SECTION_IDS as readonly string[]
+  ).includes(requestedSection)
+    ? (requestedSection as OperatingSectionId)
+    : OPERATING_DEFAULT_SECTION
+  const range = useMemo(() => buildOperatingRange(activePreset), [activePreset])
+
+  const handleSectionChange = (next: string) => {
+    void navigate({
+      to: '/operating/$section',
+      params: { section: next },
+    })
+  }
 
   return (
     <SectionPageLayout>
-      <SectionPageLayout.Title>{t('Operating Analysis')}</SectionPageLayout.Title>
-      <SectionPageLayout.Content>{content}</SectionPageLayout.Content>
+      <SectionPageLayout.Title>
+        {t(SECTION_META[section].titleKey)}
+      </SectionPageLayout.Title>
+      <SectionPageLayout.Content>
+        <div className='space-y-3 sm:space-y-4'>
+          <Tabs value={section} onValueChange={handleSectionChange}>
+            <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+              {OPERATING_SECTION_IDS.map((id) => (
+                <TabsTrigger key={id} value={id}>
+                  {t(SECTION_META[id].titleKey)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          {section === 'overview' ? (
+            <OperatingOverview
+              activePreset={activePreset}
+              onPresetChange={setActivePreset}
+            />
+          ) : (
+            <div className='space-y-3 sm:space-y-4'>
+              <OperatingHeader
+                range={range}
+                activePreset={activePreset}
+                onPresetChange={setActivePreset}
+                showExpenseAction={false}
+              />
+              <OperatingFlowTable range={range} />
+            </div>
+          )}
+        </div>
+      </SectionPageLayout.Content>
     </SectionPageLayout>
   )
 }

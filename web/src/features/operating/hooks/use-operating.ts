@@ -24,6 +24,7 @@ import {
   createOperatingExpense,
   deleteOperatingExpense,
   getOperatingExpenses,
+  getOperatingFlow,
   getOperatingSummary,
 } from '../api'
 import type { OperatingExpensePayload, OperatingRange } from '../types'
@@ -72,5 +73,24 @@ export function useDeleteOperatingExpense() {
       void queryClient.invalidateQueries({ queryKey: ['operating'] })
     },
     onError: (error) => handleServerError(error),
+  })
+}
+
+export function useOperatingFlow(
+  range: OperatingRange,
+  page: number,
+  pageSize: number
+) {
+  return useQuery({
+    queryKey: [
+      'operating',
+      'flow',
+      range.startTimestamp,
+      range.endTimestamp,
+      page,
+      pageSize,
+    ],
+    queryFn: () => getOperatingFlow(range, page, pageSize),
+    staleTime: 60 * 1000,
   })
 }

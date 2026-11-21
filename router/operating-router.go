@@ -14,6 +14,7 @@ func setOperatingRouter(apiRouter *gin.RouterGroup) {
 	operatingRoute.Use(middleware.AdminAuth())
 	{
 		operatingRoute.GET("/summary", controller.GetOperatingSummary)
+		operatingRoute.GET("/flow", controller.GetOperatingFlow)
 		operatingRoute.GET("/expenses", controller.GetOperatingExpenses)
 		operatingRoute.POST("/expenses", controller.CreateOperatingExpense)
 		operatingRoute.DELETE("/expenses/:id", controller.DeleteOperatingExpense)

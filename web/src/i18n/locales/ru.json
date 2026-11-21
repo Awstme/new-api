@@ -7860,6 +7860,13 @@
     "Snapshot of {{count}} users at {{time}}": "Снимок {{count}} пользователей на {{time}}",
     "Delete this expense record?": "Удалить эту запись расхода?",
     "The expense will be removed from this period total.": "Расход будет исключён из итога за период.",
-    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Журналы потребления и начислений недоступны в этом развёртывании, поэтому эти значения неполны, а не нулевые."
+    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Журналы потребления и начислений недоступны в этом развёртывании, поэтому эти значения неполны, а не нулевые.",
+    "Flow records": "Журнал операций",
+    "No flow records in this range": "За выбранный период операций нет",
+    "Income": "Доход",
+    "Expense": "Расход",
+    "Credits": "Квота",
+    "Page {{page}} of {{total}}": "Страница {{page}} из {{total}}",
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Доходы, расходы и начисленная квота за выбранный период появятся здесь."
   }
 }

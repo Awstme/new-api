@@ -7860,6 +7860,13 @@
     "Snapshot of {{count}} users at {{time}}": "Ảnh chụp {{count}} người dùng lúc {{time}}",
     "Delete this expense record?": "Xóa bản ghi chi phí này?",
     "The expense will be removed from this period total.": "Chi phí sẽ bị loại khỏi tổng của kỳ này.",
-    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Nhật ký tiêu thụ và cấp hạn mức không khả dụng trên triển khai này, nên các số liệu này chưa đầy đủ chứ không phải bằng 0."
+    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Nhật ký tiêu thụ và cấp hạn mức không khả dụng trên triển khai này, nên các số liệu này chưa đầy đủ chứ không phải bằng 0.",
+    "Flow records": "Nhật ký giao dịch",
+    "No flow records in this range": "Không có giao dịch nào trong kỳ này",
+    "Income": "Thu nhập",
+    "Expense": "Chi phí",
+    "Credits": "Hạn mức",
+    "Page {{page}} of {{total}}": "Trang {{page}} / {{total}}",
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Thu nhập, chi phí và hạn mức đã cấp trong kỳ sẽ hiển thị ở đây."
   }
 }

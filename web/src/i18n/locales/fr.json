@@ -7860,6 +7860,13 @@
     "Snapshot of {{count}} users at {{time}}": "Instantané de {{count}} utilisateurs à {{time}}",
     "Delete this expense record?": "Supprimer cet enregistrement de dépense ?",
     "The expense will be removed from this period total.": "La dépense sera retirée du total de cette période.",
-    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Les journaux de consommation et d'attribution sont indisponibles sur ce déploiement ; ces chiffres sont incomplets, pas nuls."
+    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Les journaux de consommation et d'attribution sont indisponibles sur ce déploiement ; ces chiffres sont incomplets, pas nuls.",
+    "Flow records": "Journal des mouvements",
+    "No flow records in this range": "Aucun mouvement sur cette période",
+    "Income": "Revenu",
+    "Expense": "Dépense",
+    "Credits": "Crédits",
+    "Page {{page}} of {{total}}": "Page {{page}} sur {{total}}",
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Les revenus, dépenses et crédits accordés apparaissent ici dès qu'ils ont lieu sur la période sélectionnée."
   }
 }

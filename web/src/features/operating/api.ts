@@ -22,6 +22,7 @@ import { requireServerSuccess } from '@/lib/server-error-message'
 import type {
   OperatingExpense,
   OperatingExpensePayload,
+  OperatingFlowPage,
   OperatingRange,
   OperatingSummary,
 } from './types'
@@ -61,4 +62,16 @@ export async function deleteOperatingExpense(id: number) {
   requireServerSuccess(
     (await api.delete<{ success: boolean }>(`/api/operating/expenses/${id}`)).data
   )
+}
+
+export async function getOperatingFlow(
+  range: OperatingRange,
+  page: number,
+  pageSize: number
+) {
+  const res = await api.get<{ success: boolean; data: OperatingFlowPage }>(
+    '/api/operating/flow',
+    { params: { ...rangeParams(range), page, page_size: pageSize } }
+  )
+  return requireServerSuccess(res.data).data
 }

@@ -1,7 +1,9 @@
 package model
 
 import (
+	"cmp"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -518,4 +520,348 @@ func CreateOperatingExpense(input OperatingExpenseInput) (*OperatingExpense, err
 func DeleteOperatingExpense(id int) error {
 	expense := &OperatingExpense{Id: id}
 	return expense.Delete()
+}
+
+// 流水事件把收入、支出、发放归一成同一条时间线的记录。它只回答「这期间发生了
+// 什么」，金额字段的单位随 Kind 不同：income/expense 是人民币分，grant 是额度。
+const (
+	OperatingFlowKindIncome  = "income"
+	OperatingFlowKindExpense = "expense"
+	OperatingFlowKindGrant   = "grant"
+)
+
+const (
+	OperatingFlowMaxPageSize     = 100
+	OperatingFlowDefaultPageSize = 20
+)
+
+type OperatingFlowEvent struct {
+	// Id 在混合来源下不唯一，仅用于前端 key；排序以 OccurredAt 为准。
+	Id   string `json:"id"`
+	Kind string `json:"kind"`
+	// Source 是具体来源：充值渠道、支出类别或发放来源。
+	Source   string `json:"source"`
+	UserId   int    `json:"user_id"`
+	Username string `json:"username"`
+	// AmountCents 仅 income/expense 有值；Quota 仅 grant 有值。
+	AmountCents int64  `json:"amount_cents"`
+	Quota       int64  `json:"quota"`
+	OccurredAt  int64  `json:"occurred_at"`
+	Note        string `json:"note"`
+	// Accuracy 说明额度是否由结构化数据导出；estimated 表示从历史日志文案还原。
+	Accuracy string `json:"accuracy"`
+}
+
+type OperatingFlowPage struct {
+	StartTimestamp int64                `json:"start_timestamp"`
+	EndTimestamp   int64                `json:"end_timestamp"`
+	Page           int                  `json:"page"`
+	PageSize       int                  `json:"page_size"`
+	Total          int64                `json:"total"`
+	Items          []OperatingFlowEvent `json:"items"`
+}
+
+// GetOperatingFlow 汇总期间内的收入、支出与发放事件，按发生时间倒序分页。
+func GetOperatingFlow(startAt, endAt int64, page, pageSize int) (OperatingFlowPage, error) {
+	result := OperatingFlowPage{
+		StartTimestamp: startAt, EndTimestamp: endAt,
+		Page: page, PageSize: pageSize,
+	}
+	if page < 1 {
+		page = 1
+		result.Page = page
+	}
+	if pageSize < 1 {
+		pageSize = OperatingFlowDefaultPageSize
+		result.PageSize = pageSize
+	}
+	if pageSize > OperatingFlowMaxPageSize {
+		pageSize = OperatingFlowMaxPageSize
+		result.PageSize = pageSize
+	}
+
+	events, err := getOperatingFlowEvents(startAt, endAt)
+	if err != nil {
+		return result, err
+	}
+	sortOperatingFlowEvents(events)
+	result.Total = int64(len(events))
+
+	offset := (page - 1) * pageSize
+	if offset >= len(events) {
+		result.Items = make([]OperatingFlowEvent, 0)
+		return result, nil
+	}
+	end := min(offset+pageSize, len(events))
+	result.Items = events[offset:end]
+	return result, nil
+}
+
+// getOperatingFlowEvents 采集期间内的三类事件。每一类都按时间列过滤，可命中现有索引。
+func getOperatingFlowEvents(startAt, endAt int64) ([]OperatingFlowEvent, error) {
+	events := make([]OperatingFlowEvent, 0, 128)
+
+	income, err := getOperatingFlowIncome(startAt, endAt)
+	if err != nil {
+		return nil, err
+	}
+	events = append(events, income...)
+
+	expenses, err := getOperatingFlowExpenses(startAt, endAt)
+	if err != nil {
+		return nil, err
+	}
+	events = append(events, expenses...)
+
+	grants, err := getOperatingFlowGrants(startAt, endAt)
+	if err != nil {
+		return nil, err
+	}
+	events = append(events, grants...)
+	return events, nil
+}
+
+func sortOperatingFlowEvents(events []OperatingFlowEvent) {
+	slices.SortFunc(events, func(a, b OperatingFlowEvent) int {
+		if a.OccurredAt != b.OccurredAt {
+			// 时间倒序；同一秒内按来源稳定排列，避免分页抖动。
+			return cmp.Compare(b.OccurredAt, a.OccurredAt)
+		}
+		if a.Kind != b.Kind {
+			return cmp.Compare(a.Kind, b.Kind)
+		}
+		return cmp.Compare(a.Id, b.Id)
+	})
+}
+
+func getOperatingFlowIncome(startAt, endAt int64) ([]OperatingFlowEvent, error) {
+	var rows []struct {
+		Id           int
+		UserId       int
+		Username     string
+		Provider     string
+		Amount       float64
+		Money        float64
+		CompleteTime int64
+		TradeNo      string
+	}
+	err := DB.Model(&TopUp{}).
+		Where("status = ? AND complete_time >= ? AND complete_time < ?", common.TopUpStatusSuccess, startAt, endAt).
+		Select("id, user_id, payment_provider AS provider, amount, money, complete_time, trade_no").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	events := make([]OperatingFlowEvent, 0, len(rows))
+	userIds := make([]int, 0, len(rows))
+	for _, row := range rows {
+		userIds = append(userIds, row.UserId)
+	}
+	usernames, err := getOperatingUsernames(userIds)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		credited, err := operatingCreditedQuota(row.Provider, row.Amount, row.Money)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, OperatingFlowEvent{
+			Id:          "topup-" + strconv.Itoa(row.Id),
+			Kind:        OperatingFlowKindIncome,
+			Source:      row.Provider,
+			UserId:      row.UserId,
+			Username:    usernames[row.UserId],
+			AmountCents: operatingRevenueCents(row.Provider, row.Money),
+			Quota:       credited,
+			OccurredAt:  row.CompleteTime,
+			Note:        row.TradeNo,
+			Accuracy:    operatingGrantExact,
+		})
+	}
+	return events, nil
+}
+
+func getOperatingFlowExpenses(startAt, endAt int64) ([]OperatingFlowEvent, error) {
+	expenses := make([]OperatingExpense, 0, 16)
+	err := DB.Where("occurred_at >= ? AND occurred_at < ?", startAt, endAt).
+		Order("occurred_at desc, id desc").
+		Find(&expenses).Error
+	if err != nil {
+		return nil, err
+	}
+	events := make([]OperatingFlowEvent, 0, len(expenses))
+	for _, expense := range expenses {
+		events = append(events, OperatingFlowEvent{
+			Id:          "expense-" + strconv.Itoa(expense.Id),
+			Kind:        OperatingFlowKindExpense,
+			Source:      expense.Category,
+			AmountCents: expense.AmountCents,
+			OccurredAt:  expense.OccurredAt,
+			Note:        expense.Note,
+			Accuracy:    operatingGrantExact,
+		})
+	}
+	return events, nil
+}
+
+// getOperatingFlowGrants 采集发放事件。签到与兑换码有结构化表，管理员调整与新用户
+// 赠送只能从日志还原，因此逐条标记 estimated。
+func getOperatingFlowGrants(startAt, endAt int64) ([]OperatingFlowEvent, error) {
+	events := make([]OperatingFlowEvent, 0, 64)
+
+	var checkins []Checkin
+	if err := DB.Where("created_at >= ? AND created_at < ?", startAt, endAt).
+		Order("created_at desc").
+		Find(&checkins).Error; err != nil {
+		return nil, err
+	}
+	for _, checkin := range checkins {
+		events = append(events, OperatingFlowEvent{
+			Id:         "checkin-" + strconv.Itoa(checkin.Id),
+			Kind:       OperatingFlowKindGrant,
+			Source:     "checkin",
+			UserId:     checkin.UserId,
+			Quota:      int64(checkin.QuotaAwarded),
+			OccurredAt: checkin.CreatedAt,
+			Note:       checkin.CheckinDate,
+			Accuracy:   operatingGrantExact,
+		})
+	}
+
+	var redemptions []Redemption
+	if err := DB.Model(&Redemption{}).
+		Where("status = ? AND redeemed_time >= ? AND redeemed_time < ?", common.RedemptionCodeStatusUsed, startAt, endAt).
+		Find(&redemptions).Error; err != nil {
+		return nil, err
+	}
+	for _, redemption := range redemptions {
+		events = append(events, OperatingFlowEvent{
+			Id:         "redemption-" + strconv.Itoa(redemption.Id),
+			Kind:       OperatingFlowKindGrant,
+			Source:     "redemption",
+			UserId:     redemption.UsedUserId,
+			Quota:      int64(redemption.Quota),
+			OccurredAt: redemption.RedeemedTime,
+			Note:       redemption.Key,
+			Accuracy:   operatingGrantExact,
+		})
+	}
+
+	var logRows []struct {
+		Id        int
+		UserId    int
+		Content   string
+		Other     string
+		CreatedAt int64
+	}
+	if err := LOG_DB.Table("logs").
+		Where("type IN ? AND created_at >= ? AND created_at < ?",
+			[]int{LogTypeTopup, LogTypeSystem}, startAt, endAt).
+		Where("content LIKE ? OR content LIKE ? OR content LIKE ? OR content LIKE ? OR content LIKE ?",
+			"Increased user quota by%", "Decreased user quota by%", "Overrode user quota from%",
+			"New user sign-up bonus%", "Invitation code bonus%").
+		Select("id, user_id, content, other, created_at").
+		Find(&logRows).Error; err != nil {
+		return nil, err
+	}
+	userIds := make([]int, 0, len(logRows))
+	for _, row := range logRows {
+		userIds = append(userIds, row.UserId)
+	}
+	usernames, err := getOperatingUsernames(userIds)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range logRows {
+		event := operatingFlowGrantFromLog(row.Id, row.UserId, row.Content, row.Other, row.CreatedAt)
+		if event == nil {
+			continue
+		}
+		event.Username = usernames[row.UserId]
+		events = append(events, *event)
+	}
+	return events, nil
+}
+
+// operatingFlowGrantFromLog 把一条发放日志还原成流水事件。额度无法结构化还原时
+// 标记 estimated，不猜具体数值。
+func operatingFlowGrantFromLog(id, userId int, content, other string, createdAt int64) *OperatingFlowEvent {
+	event := &OperatingFlowEvent{
+		Id:         "log-" + strconv.Itoa(id),
+		Kind:       OperatingFlowKindGrant,
+		UserId:     userId,
+		OccurredAt: createdAt,
+		Note:       content,
+		Accuracy:   operatingGrantEstimated,
+	}
+
+	var meta struct {
+		Op struct {
+			Action string `json:"action"`
+			Params struct {
+				Quota int64 `json:"quota"`
+				From  int64 `json:"from"`
+				To    int64 `json:"to"`
+			} `json:"params"`
+		} `json:"op"`
+	}
+	if common.UnmarshalJsonStr(other, &meta) == nil {
+		switch meta.Op.Action {
+		case "user.quota_add":
+			event.Source = "admin"
+			event.Quota = meta.Op.Params.Quota
+			event.Accuracy = operatingGrantExact
+			return event
+		case "user.quota_subtract":
+			event.Source = "admin"
+			event.Quota = -meta.Op.Params.Quota
+			event.Accuracy = operatingGrantExact
+			return event
+		case "user.quota_override":
+			// override 是绝对值重置，差额可能包含单位换算，只记录事件不计额度。
+			event.Source = "admin"
+			event.Accuracy = operatingGrantExact
+			event.Note = "Override: " + strconv.FormatInt(meta.Op.Params.From, 10) + " -> " + strconv.FormatInt(meta.Op.Params.To, 10)
+			return event
+		}
+	}
+
+	rest := content
+	switch {
+	case strings.HasPrefix(rest, "New user sign-up bonus"):
+		event.Source = "signup"
+		rest = strings.TrimPrefix(rest, "New user sign-up bonus")
+	case strings.HasPrefix(rest, "Invitation code bonus"):
+		event.Source = "invite"
+		rest = strings.TrimPrefix(rest, "Invitation code bonus")
+	case strings.HasPrefix(rest, "Bonus for inviting a user"):
+		event.Source = "invite"
+		rest = strings.TrimPrefix(rest, "Bonus for inviting a user")
+	default:
+		return nil
+	}
+	if quota, ok := parseQuotaFromLogText(rest); ok {
+		event.Quota = quota
+	}
+	return event
+}
+
+// getOperatingUsernames 批量取用户名，避免逐条查询。
+func getOperatingUsernames(userIds []int) (map[int]string, error) {
+	usernames := make(map[int]string, len(userIds))
+	if len(userIds) == 0 {
+		return usernames, nil
+	}
+	var users []User
+	if err := DB.Model(&User{}).Unscoped().
+		Select("id, username").
+		Where("id IN ?", userIds).
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+	for _, user := range users {
+		usernames[user.Id] = user.Username
+	}
+	return usernames, nil
 }

@@ -7860,6 +7860,13 @@
     "Snapshot of {{count}} users at {{time}}": "{{time}} 時点の {{count}} 人分のスナップショット",
     "Delete this expense record?": "この支出記録を削除しますか？",
     "The expense will be removed from this period total.": "この支出は今回の合計から除外されます。",
-    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "このデプロイでは消費・付与ログが利用できないため、これらの数値は完全ではなくゼロではありません。"
+    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "このデプロイでは消費・付与ログが利用できないため、これらの数値は完全ではなくゼロではありません。",
+    "Flow records": "入出金履歴",
+    "No flow records in this range": "この期間の入出金履歴はありません",
+    "Income": "収入",
+    "Expense": "支出",
+    "Credits": "クォータ",
+    "Page {{page}} of {{total}}": "{{page}} / {{total}} ページ",
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "選択した期間に発生した収入・支出・クォータ付与がここに表示されます。"
   }
 }

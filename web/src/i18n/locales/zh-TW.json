@@ -7860,6 +7860,13 @@
     "Snapshot of {{count}} users at {{time}}": "{{count}} 位使用者在 {{time}} 的快照",
     "Delete this expense record?": "刪除這筆支出記錄？",
     "The expense will be removed from this period total.": "該支出將從本期合計中移除。",
-    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "該部署的消費與發放日誌無法使用，因此這些數字不完整，不能視為零。"
+    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "該部署的消費與發放日誌無法使用，因此這些數字不完整，不能視為零。",
+    "Flow records": "流水日誌",
+    "No flow records in this range": "所選期間沒有流水記錄",
+    "Income": "收入",
+    "Expense": "支出",
+    "Credits": "額度",
+    "Page {{page}} of {{total}}": "第 {{page}} / {{total}} 頁",
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "所選期間內發生的收入、支出與額度發放會顯示在這裡。"
   }
 }

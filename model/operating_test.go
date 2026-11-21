@@ -323,3 +323,54 @@ func TestParseQuotaFromLogText(t *testing.T) {
 	_, ok = parseQuotaFromLogText("not a number")
 	assert.False(t, ok)
 }
+
+// TestOperatingFlowTimeline 固定流水时间线的三种事件、倒序排序与分页边界。
+func TestOperatingFlowTimeline(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "mysql", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			setupOperatingTestDB(t, dialect)
+			startAt, endAt := int64(1_700_000_000), int64(1_700_086_400)
+			seedOperatingSummary(t, startAt, endAt)
+
+			flow, err := GetOperatingFlow(startAt, endAt, 1, 100)
+			require.NoError(t, err)
+			require.NotEmpty(t, flow.Items)
+
+			// 时间必须严格倒序，否则分页会抖动。
+			for i := 1; i < len(flow.Items); i++ {
+				require.GreaterOrEqual(t, flow.Items[i-1].OccurredAt, flow.Items[i].OccurredAt)
+			}
+
+			kinds := make(map[string]int)
+			for _, event := range flow.Items {
+				kinds[event.Kind]++
+			}
+			// 含修复扫描错误时补的小数额度样本，共 3 笔成功充值。
+			assert.EqualValues(t, 3, kinds[OperatingFlowKindIncome])
+			assert.EqualValues(t, 2, kinds[OperatingFlowKindExpense])
+			assert.NotZero(t, kinds[OperatingFlowKindGrant])
+
+			// 收入金额换算为人民币分，并携带到账额度。
+			var income OperatingFlowEvent
+			for _, event := range flow.Items {
+				if event.Kind == OperatingFlowKindIncome && event.Source == PaymentProviderEpay {
+					income = event
+					break
+				}
+			}
+			require.NotEmpty(t, income.Id)
+			assert.EqualValues(t, 180, income.AmountCents)
+			assert.NotZero(t, income.Quota)
+
+			// 第二页应返回剩余条目，越界页返回空而不是报错。
+			second, err := GetOperatingFlow(startAt, endAt, 2, 2)
+			require.NoError(t, err)
+			assert.EqualValues(t, flow.Total, second.Total)
+			require.Len(t, second.Items, 2)
+
+			beyond, err := GetOperatingFlow(startAt, endAt, 999, 20)
+			require.NoError(t, err)
+			assert.Empty(t, beyond.Items)
+		})
+	}
+}

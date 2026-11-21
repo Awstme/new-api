@@ -98,3 +98,19 @@ func DeleteOperatingExpense(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": ""})
 }
+
+// GetOperatingFlow 返回期间内的收入、支出与发放流水，按发生时间倒序分页。
+func GetOperatingFlow(c *gin.Context) {
+	startAt, endAt, ok := parseOperatingRange(c)
+	if !ok {
+		return
+	}
+	page, _ := strconv.Atoi(c.Query("page"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+	flow, err := model.GetOperatingFlow(startAt, endAt, page, pageSize)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, flow)
+}

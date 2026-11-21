@@ -18,16 +18,16 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Operating } from '@/features/operating'
-import { ROLE } from '@/lib/roles'
-import { useAuthStore } from '@/stores/auth-store'
+import { OPERATING_DEFAULT_SECTION } from '@/features/operating/section-registry'
 
+/**
+ * `/operating` 没有 section 段，重定向到默认区块，让 tab 与 URL 保持一致。
+ */
 export const Route = createFileRoute('/_authenticated/operating/')({
   beforeLoad: () => {
-    const { auth } = useAuthStore.getState()
-    if (!auth.user || auth.user.role < ROLE.ADMIN) {
-      throw redirect({ to: '/403' })
-    }
+    throw redirect({
+      to: '/operating/$section',
+      params: { section: OPERATING_DEFAULT_SECTION },
+    })
   },
-  component: Operating,
 })

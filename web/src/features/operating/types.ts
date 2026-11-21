@@ -86,3 +86,28 @@ export interface OperatingExpensePayload {
   occurred_at: number
   note: string
 }
+
+export type OperatingFlowKind = 'income' | 'expense' | 'grant'
+
+/** 流水事件：收入/支出金额是人民币分，发放是额度。 */
+export interface OperatingFlowEvent {
+  id: string
+  kind: OperatingFlowKind
+  source: string
+  user_id: number
+  username: string
+  amount_cents: number
+  quota: number
+  occurred_at: number
+  note: string
+  accuracy: OperatingAccuracy
+}
+
+export interface OperatingFlowPage {
+  start_timestamp: number
+  end_timestamp: number
+  page: number
+  page_size: number
+  total: number
+  items: OperatingFlowEvent[]
+}

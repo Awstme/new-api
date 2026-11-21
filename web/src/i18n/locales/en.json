@@ -7860,6 +7860,13 @@
     "Snapshot of {{count}} users at {{time}}": "Snapshot of {{count}} users at {{time}}",
     "Delete this expense record?": "Delete this expense record?",
     "The expense will be removed from this period total.": "The expense will be removed from this period total.",
-    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero."
+    "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.": "Consume and grant logs are unavailable for this deployment, so those figures are incomplete rather than zero.",
+    "Flow records": "Flow records",
+    "No flow records in this range": "No flow records in this range",
+    "Income": "Income",
+    "Expense": "Expense",
+    "Credits": "Credits",
+    "Page {{page}} of {{total}}": "Page {{page}} of {{total}}",
+    "Income, expenses and issued credits appear here once they happen in the selected range.": "Income, expenses and issued credits appear here once they happen in the selected range."
   }
 }

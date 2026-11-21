@@ -33,6 +33,8 @@ interface OperatingHeaderProps {
   range: OperatingRange
   activePreset: number
   onPresetChange: (days: number) => void
+  /** 仅概览需要录入支出，流水页只做筛选。 */
+  showExpenseAction?: boolean
 }
 
 /** 与数据面板顶部的分段筛选一致：浅底圆角容器里的分段按钮。 */
@@ -64,15 +66,17 @@ export function OperatingHeader(props: OperatingHeaderProps) {
             {startLabel} ~ {endLabel}
           </span>
         </div>
-        <Button
-          size='sm'
-          variant='outline'
-          className='h-8'
-          onClick={() => setExpenseDialogOpen(true)}
-        >
-          <Plus className='size-4' aria-hidden='true' />
-          {t('Record expense')}
-        </Button>
+        {props.showExpenseAction === false ? null : (
+          <Button
+            size='sm'
+            variant='outline'
+            className='h-8'
+            onClick={() => setExpenseDialogOpen(true)}
+          >
+            <Plus className='size-4' aria-hidden='true' />
+            {t('Record expense')}
+          </Button>
+        )}
       </div>
 
       <OperatingExpenseDialog
