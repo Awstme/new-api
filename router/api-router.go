@@ -358,6 +358,8 @@ func SetApiRouter(router *gin.Engine) {
 			systemInfoRoute.DELETE("/instances/:node_name", controller.DeleteStaleSystemInstance)
 		}
 
+		setOperatingRouter(apiRouter)
+
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/perf-metrics/summary", middleware.DisableCache(), middleware.AdminAuth(), controller.GetDashboardPerfMetricsSummary)
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)
